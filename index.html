@@ -1,0 +1,1941 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Fit Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: a full-screen 3D island (the game) with a retro HUD on top: calories-left counter top center, dock + chat at the bottom, panels slide over the world. Single deliberate dark arcade look. */
+:root {
+  --void: #13101f;
+  --panel: #1e1a34;
+  --panel-2: #29234a;
+  --ink: #07060d;
+  --line: #3d3566;
+  --text: #f1ead6;
+  --dim: #948db8;
+  --hp: #ff4d5e;
+  --hp-deep: #6a1626;
+  --gold: #ffc94a;
+  --mana: #4fc8ff;
+  --good: #63e06b;
+  --boss: #a374ff;
+  --display: "Press Start 2P", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { height: 100%; box-sizing: border-box; background: var(--void); }
+body { height: 100%; margin: 0; overflow: hidden; background: var(--void); color: var(--text); font-family: var(--body); font-size: 21px; line-height: 1.2; }
+button, input, select, textarea { font: inherit; color: inherit; }
+#app { position: relative; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+.topnav { flex: none; position: relative; z-index: 70; display: flex; align-items: center; gap: 12px; padding-block: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); background: var(--ink); border-bottom: 3px solid var(--line); }
+.brand { font-family: var(--display); font-size: 12px; color: var(--gold); white-space: nowrap; text-shadow: 2px 2px 0 var(--hp); }
+.brand span { color: var(--text); margin-left: 6px; text-shadow: 2px 2px 0 var(--boss); }
+.tabsbar { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
+.tabsbar::-webkit-scrollbar { display: none; }
+.navtab { font-family: var(--display); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 9px 10px; background: transparent; border: 2px solid transparent; color: var(--dim); cursor: pointer; white-space: nowrap; }
+.navtab:hover { color: var(--text); border-color: var(--line); }
+.navtab:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; }
+.navtab[aria-selected="true"] { background: var(--gold); color: var(--ink); border-color: var(--ink); }
+.navcoins { font-family: var(--display); font-size: 10px; color: var(--gold); white-space: nowrap; }
+@media (max-width: 560px) { .brand { display: none; } }
+#stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.page { position: absolute; inset: 0; z-index: 30; overflow-y: auto; background: radial-gradient(ellipse at 50% 0%, #2a2150 0%, var(--void) 60%), var(--void); padding-block: 22px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.page.home { background: linear-gradient(to bottom, rgba(19,16,31,.1), rgba(19,16,31,.75) 40%, var(--void) 85%); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; width: 100%; }
+.wrap.narrow { max-width: 760px; }
+.page-h { font-family: var(--display); font-size: 14px; color: var(--gold); margin: 0; letter-spacing: 2px; text-shadow: 3px 3px 0 var(--ink); }
+.card { background: var(--panel); border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--ink), inset 0 0 0 2px #2f2955; padding: 16px; min-width: 0; color: var(--text); }
+.card h2 { font-family: var(--display); font-size: 11px; letter-spacing: 2px; color: var(--gold); margin: 0 0 12px; text-wrap: balance; }
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding-block: 36px 6px; }
+.ctas { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.homeq { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; cursor: pointer; width: 100%; max-width: 640px; align-self: center; font: inherit; }
+.hq-num { font-family: var(--display); font-size: clamp(28px, 7vw, 54px); line-height: 1; text-shadow: 4px 4px 0 var(--hp-deep), 7px 7px 0 var(--ink); font-variant-numeric: tabular-nums; }
+.homeq.gain .hq-num { text-shadow: 4px 4px 0 #1d4a26, 7px 7px 0 var(--ink); }
+.home-live { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+/* tracker */
+.arena { position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding-block: 6px 10px; }
+.boss-tag { font-family: var(--display); font-size: 10px; color: var(--boss); letter-spacing: 2px; }
+.boss-tag b { color: var(--text); font-weight: normal; }
+.boss-stage { height: 168px; display: flex; align-items: flex-end; justify-content: center; }
+.boss-scale { transform-origin: 50% 100%; transition: transform .8s steps(6); }
+#boss { width: 160px; height: 160px; image-rendering: pixelated; display: block; animation: bossbob 1.2s steps(2) infinite; }
+#boss.hit { animation: shake .45s steps(6), flash .45s steps(3); }
+#boss.dead { opacity: .3; animation: none; filter: grayscale(1); }
+@keyframes bossbob { 50% { transform: translateY(-6px); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+@keyframes flash { 0%,66% { filter: brightness(3) saturate(0); } }
+.hp-label { font-family: var(--display); font-size: 11px; letter-spacing: 2px; color: var(--hp); }
+.hp-num { font-family: var(--display); font-size: clamp(30px, 9.5vw, 76px); line-height: 1; text-shadow: 4px 4px 0 var(--hp-deep), 8px 8px 0 var(--ink); font-variant-numeric: tabular-nums; }
+.hpbar.big { width: min(640px, 100%); height: 30px; border-width: 4px; box-shadow: 4px 4px 0 var(--ink); display: block; }
+.arena.gain .hp-label, .homeq.gain #hqLbl { color: var(--good) !important; }
+.arena.gain .hp-num { text-shadow: 4px 4px 0 #1d4a26, 8px 8px 0 var(--ink); }
+.arena.gain .hpbar, .homeq.gain .hpbar { background: #1d4a26; }
+.arena.gain .hpbar .fill, .homeq.gain .hpbar .fill { background: var(--good); }
+.hp-meta { display: flex; gap: 8px 22px; flex-wrap: wrap; justify-content: center; font-size: 24px; }
+.hp-meta b { color: var(--gold); font-weight: normal; }
+.hp-note { color: var(--dim); font-size: 19px; max-width: 64ch; }
+.hp-note .pending { color: var(--gold); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.tile { display: flex; flex-direction: column; gap: 6px; }
+.tile .big { font-family: var(--display); font-size: 20px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tile .sub { color: var(--dim); font-size: 19px; }
+.tile .sub b { color: var(--text); font-weight: normal; }
+.xpbar { height: 12px; background: var(--ink); border: 2px solid var(--ink); }
+.xpbar > div { height: 100%; background: var(--mana); }
+.warn { background: #3a1420; box-shadow: 6px 6px 0 var(--ink), inset 0 0 0 2px var(--hp); }
+.warn p { margin: 0; max-width: 75ch; }
+.warn strong { font-family: var(--display); font-size: 10px; color: var(--hp); display: block; margin-bottom: 8px; letter-spacing: 1px; font-weight: normal; }
+.cols { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+@media (min-width: 900px) { .cols { grid-template-columns: 1.25fr 1fr; } }
+.side { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.chart-wrap { overflow-x: auto; }
+.chart-wrap svg { width: 100%; min-width: 320px; height: auto; display: block; }
+.chart-wrap text { font-family: var(--body); font-size: 15px; fill: var(--dim); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--dim); font-size: 18px; margin-top: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal .dow { font-family: var(--display); font-size: 7px; color: var(--dim); text-align: center; }
+.cell { aspect-ratio: 1; max-width: 100%; background: var(--ink); border: 2px solid #2c2650; display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px 4px; font-size: 16px; color: var(--dim); cursor: pointer; }
+.cell.under { background: #1d4a26; border-color: var(--good); color: var(--text); }
+.cell.over { background: #4a1820; border-color: var(--hp); color: var(--text); }
+.cell.live { border-color: var(--mana); }
+.cell.today { outline: 3px solid var(--gold); outline-offset: -1px; }
+.cell.viewing { box-shadow: inset 0 0 0 3px var(--gold); }
+#world { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; touch-action: none; cursor: grab; }
+#world:active { cursor: grabbing; }
+#tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; will-change: transform; }
+.tag .nm { font-family: var(--display); font-size: 8px; letter-spacing: 1px; background: rgba(7,6,13,.72); padding: 4px 6px; white-space: nowrap; color: var(--text); }
+.tag .nm i { font-style: normal; color: var(--gold); }
+.tag.me .nm { color: var(--mana); }
+.tag.npc .nm { color: var(--gold); }
+.tag.bot .nm { color: var(--dim); }
+.bubble { background: #fff8e6; color: #1b1726; font-size: 19px; line-height: 1.05; padding: 5px 9px; border: 3px solid var(--ink); max-width: 230px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.scanlines { position: absolute; inset: 0; pointer-events: none; z-index: 80; background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.12) 2px 4px); }
+
+/* ---------- buttons & fields ---------- */
+.btn { font-family: var(--display); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; background: var(--panel-2); color: var(--text); border: 3px solid var(--ink);
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,.35), inset 3px 3px 0 rgba(255,255,255,.12), 3px 3px 0 var(--ink); padding: 10px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: #352d5e; }
+.btn:active { transform: translate(3px,3px); box-shadow: inset -3px -3px 0 rgba(0,0,0,.35), inset 3px 3px 0 rgba(255,255,255,.12); }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .tab:focus-visible, .sw:focus-visible, .chipbtn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.btn.go { background: var(--good); color: var(--ink); } .btn.go:hover { background: #7ff087; }
+.btn.gold { background: var(--gold); color: var(--ink); } .btn.gold:hover { background: #ffd978; }
+.btn.red { background: var(--hp); color: var(--ink); }
+.btn.ghost { background: transparent; box-shadow: none; border-color: var(--line); color: var(--dim); }
+.btn.sm { font-size: 8px; padding: 7px 8px; }
+.btn.lg { font-size: 13px; padding: 14px 20px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+input, select, textarea { background: var(--ink); border: 3px solid var(--line); padding: 5px 9px; font-size: 22px; width: 100%; min-width: 0; border-radius: 0; }
+input:focus, select:focus, textarea:focus { border-color: var(--gold); outline: none; }
+textarea { resize: vertical; min-height: 60px; }
+label.f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+label.f > span, .lbl { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); text-transform: uppercase; }
+.hint { color: var(--dim); font-size: 18px; }
+.err { color: var(--hp); font-size: 19px; }
+.coin { display: inline-block; width: 12px; height: 12px; background: var(--gold); box-shadow: inset -2px -2px 0 #b07a14, 0 0 0 2px var(--ink); vertical-align: -1px; margin-right: 6px; }
+
+/* ---------- HUD ---------- */
+.hud-top { position: absolute; z-index: 20; top: 10px; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 1fr minmax(0, 440px) 1fr; grid-template-areas: "me burn tr"; gap: 10px; align-items: start; pointer-events: none; }
+.hud-top > * { pointer-events: auto; }
+.hud-card { background: rgba(30,26,52,.92); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink), inset 0 0 0 2px #2f2955; padding: 8px 10px; }
+.me-card { grid-area: me; justify-self: start; display: flex; flex-direction: column; gap: 4px; cursor: pointer; text-align: left; }
+.me-card .t { font-family: var(--display); font-size: 9px; color: var(--mana); }
+.me-card .c { font-family: var(--display); font-size: 11px; color: var(--gold); }
+.burn { grid-area: burn; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+.burn .l { font-family: var(--display); font-size: 8px; letter-spacing: 2px; color: var(--hp); }
+.burn .n { font-family: var(--display); font-size: clamp(20px, 4.4vw, 32px); line-height: 1; text-shadow: 3px 3px 0 var(--hp-deep), 5px 5px 0 var(--ink); font-variant-numeric: tabular-nums; }
+.burn.gain .l { color: var(--good); } .burn.gain .n { text-shadow: 3px 3px 0 #1d4a26, 5px 5px 0 var(--ink); }
+.hpbar { position: relative; width: 100%; height: 14px; background: var(--hp-deep); border: 3px solid var(--ink); }
+.burn.gain .hpbar { background: #1d4a26; }
+.hpbar .fill, .hpbar .pend { position: absolute; top: 0; bottom: 0; left: 0; transition: width .8s steps(10); }
+.hpbar .fill { background: var(--hp); }
+.burn.gain .hpbar .fill { background: var(--good); }
+.hpbar .pend { background: var(--gold); animation: blink 1s steps(1) infinite; }
+.hpbar::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to right, transparent 0 calc(10% - 2px), var(--ink) calc(10% - 2px) 10%); }
+@keyframes blink { 50% { opacity: .25; } }
+.burn .s { font-size: 18px; color: var(--dim); }
+.burn .s b { color: var(--text); font-weight: normal; }
+.tr { grid-area: tr; justify-self: end; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.online { font-family: var(--display); font-size: 8px; color: var(--good); }
+@media (max-width: 760px) {
+  .hud-top { grid-template-columns: 1fr auto; grid-template-areas: "burn burn" "me tr"; }
+}
+.chatlog { position: absolute; z-index: 15; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 132px; width: min(380px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 3px; pointer-events: none; }
+.chatlog div { background: rgba(7,6,13,.66); padding: 2px 8px; font-size: 19px; align-self: flex-start; max-width: 100%; overflow-wrap: anywhere; }
+.chatlog b { font-weight: normal; color: var(--mana); }
+.chatlog .sys { color: var(--gold); }
+.hud-bottom { position: absolute; z-index: 20; bottom: 10px; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.hud-bottom > * { pointer-events: auto; }
+.prompt { font-family: var(--display); font-size: 10px; background: var(--gold); color: var(--ink); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: 10px 14px; cursor: pointer; animation: bob 1s steps(2) infinite; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.dock { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.chatbar { display: flex; gap: 6px; width: min(560px, 100%); }
+.chatbar input { font-size: 20px; padding: 4px 8px; background: rgba(7,6,13,.85); }
+.emotes { display: flex; gap: 4px; }
+
+/* ---------- panel ---------- */
+.panel { position: absolute; z-index: 40; top: 10px; bottom: 10px; right: max(12px, env(safe-area-inset-right, 0px)); width: min(470px, calc(100% - 24px));
+  background: var(--panel); border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--ink), inset 0 0 0 2px #2f2955; display: flex; flex-direction: column; }
+@media (max-width: 760px) { .panel { top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: auto; height: 80%; bottom: 8px; } }
+.panel-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 3px solid var(--ink); gap: 10px; }
+.panel-h h2 { font-family: var(--display); font-size: 12px; color: var(--gold); margin: 0; letter-spacing: 2px; }
+.panel-b { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; min-height: 0; flex: 1; }
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.sec h3 { font-family: var(--display); font-size: 9px; color: var(--gold); margin: 6px 0 0; letter-spacing: 1px; }
+.row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.row > label.f { flex: 1 1 110px; }
+.box { background: var(--ink); padding: 10px 12px; }
+.tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+.tab { font-family: var(--display); font-size: 8px; letter-spacing: 1px; padding: 8px 9px; background: var(--ink); border: 2px solid var(--line); color: var(--dim); cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+.entry { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 3px 0; }
+.entry .nm { min-width: 0; overflow-wrap: anywhere; }
+.entry .kc { color: var(--mana); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.x { background: none; border: 0; color: var(--dim); cursor: pointer; font-family: var(--display); font-size: 10px; padding: 4px 6px; }
+.x:hover { color: var(--hp); }
+.empty { color: var(--dim); font-size: 18px; }
+.meter { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.meter .left { font-family: var(--display); font-size: 22px; color: var(--mana); grid-row: span 2; font-variant-numeric: tabular-nums; }
+.meter .left.over { color: var(--hp); }
+.meter .left small { display: block; font-size: 7px; color: var(--dim); letter-spacing: 1px; margin-top: 6px; }
+.meter .eq { color: var(--dim); font-size: 18px; } .meter .eq b { color: var(--text); font-weight: normal; }
+.mbar { height: 12px; background: #10203a; position: relative; }
+.mbar > div { position: absolute; inset: 0 auto 0 0; background: var(--mana); }
+.mbar.over > div { background: var(--hp); }
+.namef { position: relative; }
+.sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; background: var(--ink); border: 3px solid var(--gold); max-height: 240px; overflow-y: auto; }
+.sugg button { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; padding: 5px 9px; cursor: pointer; font-size: 20px; }
+.sugg button:hover, .sugg button.on { background: var(--panel-2); }
+.sugg small { color: var(--dim); white-space: nowrap; }
+.quick { display: flex; gap: 5px; flex-wrap: wrap; }
+.quick button { background: var(--panel-2); border: 2px solid var(--line); padding: 1px 7px; font-size: 18px; cursor: pointer; }
+.quick button:hover { border-color: var(--gold); }
+.oracle { padding: 10px; border: 3px dashed #4b3f86; display: flex; flex-direction: column; gap: 8px; }
+.oracle-out .it { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--ink); padding: 3px 8px; margin-top: 4px; }
+.meal-h { display: flex; justify-content: space-between; border-bottom: 3px solid var(--ink); padding-bottom: 3px; }
+.meal-h .lbl { color: var(--gold); }
+.strip { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; }
+.strip button { aspect-ratio: 1; max-width: 100%; border: 2px solid #2c2650; background: var(--ink); font-size: 14px; color: var(--dim); cursor: pointer; padding: 0; }
+.strip .hit { background: #1d4a26; border-color: var(--good); color: var(--text); }
+.strip .miss { background: #4a1820; border-color: var(--hp); color: var(--text); }
+.strip .live { border-color: var(--mana); }
+.strip .on { outline: 3px solid var(--gold); outline-offset: -1px; }
+
+.q { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; background: var(--ink); padding: 8px 10px; }
+.q .qn { min-width: 0; }
+.q .qs { font-size: 17px; color: var(--dim); grid-column: 1; }
+.q .rw { font-family: var(--display); font-size: 9px; color: var(--gold); white-space: nowrap; }
+.q.done { opacity: .5; }
+.q .btn { grid-column: 2; grid-row: 1 / span 2; }
+.chip { font-family: var(--display); font-size: 7px; letter-spacing: 1px; padding: 4px 6px; color: var(--ink); background: var(--dim); display: inline-block; }
+.chip.good { background: var(--good); } .chip.bad { background: var(--hp); } .chip.mana { background: var(--mana); } .chip.gold { background: var(--gold); }
+
+.prev { width: 100%; height: 220px; background: radial-gradient(circle at 50% 70%, #3a2f6e, var(--ink) 70%); border: 3px solid var(--ink); position: relative; }
+.prev canvas { width: 100% !important; height: 100% !important; display: block; image-rendering: pixelated; }
+.prev .trying { position: absolute; left: 8px; top: 8px; font-family: var(--display); font-size: 7px; color: var(--gold); }
+.grid-shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+.item { background: var(--ink); padding: 8px; display: flex; flex-direction: column; gap: 6px; border: 2px solid #2c2650; }
+.item.rare { border-color: var(--boss); } .item.legend { border-color: var(--gold); }
+.item.eq { box-shadow: inset 0 0 0 2px var(--good); }
+.item .sw { height: 44px; display: grid; place-items: center; font-family: var(--display); font-size: 7px; color: rgba(0,0,0,.6); border: 2px solid rgba(0,0,0,.4); cursor: pointer; }
+.item .in { font-size: 18px; line-height: 1; }
+.item .pr { font-family: var(--display); font-size: 8px; color: var(--gold); }
+.item .acts { display: flex; gap: 4px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.sw-btn { width: 30px; height: 30px; border: 3px solid var(--ink); cursor: pointer; }
+.sw-btn[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 1px; }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chipbtn { background: var(--ink); border: 2px solid var(--line); padding: 3px 9px; font-size: 18px; cursor: pointer; }
+.chipbtn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.rank { display: grid; grid-template-columns: 34px 14px 1fr auto; gap: 8px; align-items: center; background: var(--ink); padding: 6px 10px; }
+.rank .r { font-family: var(--display); font-size: 9px; color: var(--dim); }
+.rank:nth-child(1) .r { color: var(--gold); } .rank:nth-child(2) .r { color: #cfd6e0; } .rank:nth-child(3) .r { color: #d9895b; }
+.rank .dot { width: 12px; height: 12px; border: 2px solid var(--ink); }
+.rank .nm { min-width: 0; overflow-wrap: anywhere; }
+.rank .v { text-align: right; font-variant-numeric: tabular-nums; }
+.rank .v small { display: block; color: var(--dim); font-size: 16px; }
+.rank.you { box-shadow: inset 0 0 0 2px var(--mana); }
+
+/* ---------- overlays ---------- */
+.overlay { position: absolute; inset: 0; z-index: 60; overflow-y: auto; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.title { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; background: linear-gradient(to bottom, rgba(19,16,31,.2), rgba(19,16,31,.78) 70%); }
+.logo { font-family: var(--display); font-size: clamp(30px, 8vw, 68px); line-height: 1.05; margin: 0; color: var(--gold); text-shadow: 4px 4px 0 var(--hp), 8px 8px 0 var(--ink); }
+.logo span { display: block; color: var(--text); text-shadow: 4px 4px 0 var(--boss), 8px 8px 0 var(--ink); }
+.tagline { font-size: 24px; max-width: 34ch; margin: 0; text-wrap: balance; }
+.title .status { color: var(--dim); font-size: 19px; max-width: 52ch; }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; max-width: 760px; width: 100%; text-align: left; }
+.how div { background: rgba(7,6,13,.75); border: 3px solid var(--ink); padding: 10px; font-size: 18px; color: var(--dim); }
+.how b { display: block; font-family: var(--display); font-size: 8px; color: var(--gold); font-weight: normal; margin-bottom: 6px; letter-spacing: 1px; }
+.create { background: rgba(19,16,31,.92); }
+.create-card { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 820px) { .create-card { grid-template-columns: 330px 1fr; } }
+.create-card > div, .create-card > form { background: var(--panel); border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.create-card h2 { font-family: var(--display); font-size: 13px; color: var(--gold); margin: 0; letter-spacing: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.summary { background: var(--ink); padding: 10px 12px; font-size: 20px; }
+.summary b { color: var(--gold); font-weight: normal; }
+.warnbox { background: #3a1420; box-shadow: inset 0 0 0 2px var(--hp); padding: 10px 12px; font-size: 19px; }
+.toast { position: absolute; z-index: 90; left: 50%; top: 120px; transform: translateX(-50%); background: var(--ink); border: 4px solid var(--gold); box-shadow: 6px 6px 0 #000; padding: 10px 16px; max-width: calc(100% - 32px); display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.toast .t1 { font-family: var(--display); font-size: 9px; color: var(--gold); letter-spacing: 1px; }
+.toast .t2 { font-family: var(--display); font-size: 12px; }
+.float { position: absolute; z-index: 85; font-family: var(--display); font-size: 16px; color: var(--gold); text-shadow: 3px 3px 0 var(--ink); pointer-events: none; animation: rise 1.4s steps(14) forwards; }
+@keyframes rise { to { transform: translateY(-60px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #boss, #boss.hit { animation: none; } .boss-scale { transition: none; } .prompt, .hpbar .pend { animation: none; } .float { animation: none; opacity: 0; } .hpbar .fill, .hpbar .pend { transition: none; } }
+</style>
+
+<div id="app">
+  <nav class="topnav" aria-label="Sections">
+    <span class="brand">FIT<span>QUEST</span></span>
+    <div class="tabsbar" role="tablist">
+      <button class="navtab" type="button" role="tab" data-tab="home" aria-selected="true">Home</button>
+      <button class="navtab" type="button" role="tab" data-tab="tracker" aria-selected="false">Tracker</button>
+      <button class="navtab" type="button" role="tab" data-tab="quests" aria-selected="false">Quests</button>
+      <button class="navtab" type="button" role="tab" data-tab="shop" aria-selected="false">Catalog</button>
+      <button class="navtab" type="button" role="tab" data-tab="island" aria-selected="false">Island</button>
+      <button class="navtab" type="button" role="tab" data-tab="closet" aria-selected="false">Avatar</button>
+      <button class="navtab" type="button" role="tab" data-tab="ranks" aria-selected="false">Ranks</button>
+    </div>
+    <span class="navcoins" id="navCoins" hidden><span class="coin"></span><span id="navCoinsN">0</span></span>
+  </nav>
+  <div id="stage">
+  <canvas id="world" aria-label="The Fit Quest island"></canvas>
+  <div id="tags"></div>
+  <div class="scanlines"></div>
+
+  <div class="hud-top" id="hud" hidden>
+    <button class="hud-card me-card" id="meCard" type="button" aria-label="Edit avatar">
+      <span class="t" id="meTag">PLAYER</span>
+      <span class="c"><span class="coin"></span><span id="meCoins">0</span></span>
+      <span class="hint" id="meLv">LV 1</span>
+    </button>
+    <button class="hud-card burn" id="burnCard" type="button" aria-label="Open food log">
+      <span class="l" id="burnLbl">CALORIES LEFT TO BURN</span>
+      <span class="n" id="burnNum">0</span>
+      <span class="hpbar"><span class="fill" id="hpFill" style="width:100%"></span><span class="pend" id="hpPend" style="width:0"></span></span>
+      <span class="s" id="burnSub"></span>
+    </button>
+    <div class="tr">
+      <span class="hud-card online" id="online">SOLO</span>
+      <button class="btn sm" id="soundBtn" type="button">Sound: on</button>
+    </div>
+  </div>
+
+  <div class="chatlog" id="chatlog" aria-live="polite"></div>
+
+  <div class="hud-bottom" id="hudBottom" hidden>
+    <button class="prompt" id="prompt" type="button" hidden></button>
+    <form class="chatbar" id="chatForm">
+      <input id="chatIn" type="text" maxlength="140" placeholder="Press Enter to chat" autocomplete="off" aria-label="Chat message">
+      <button class="btn sm" type="submit">Say</button>
+    </form>
+    <nav class="dock" aria-label="Menus">
+      <button class="btn sm" type="button" data-open="log">Food log</button>
+      <button class="btn sm" type="button" data-open="quests">Quests</button>
+      <button class="btn sm gold" type="button" data-open="shop">Catalog</button>
+      <button class="btn sm" type="button" data-open="closet">Avatar</button>
+      <button class="btn sm" type="button" data-open="ranks">Ranks</button>
+      <span class="emotes">
+        <button class="btn sm ghost" type="button" data-emote="wave">Wave</button>
+        <button class="btn sm ghost" type="button" data-emote="flex">Flex</button>
+        <button class="btn sm ghost" type="button" data-emote="dance">Dance</button>
+      </span>
+    </nav>
+  </div>
+
+  <!-- side panel -->
+  <aside class="panel" id="panel" hidden>
+    <div class="panel-h"><h2 id="panelTitle">PANEL</h2><button class="btn sm" id="panelClose" type="button">Close</button></div>
+    <div class="panel-b">
+
+      <!-- LOG -->
+      <section id="p-log" class="sec" hidden>
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <button class="btn sm" id="dPrev" type="button" aria-label="Previous day">&lt;</button>
+          <span class="lbl" id="dLabel" style="color:var(--text)">TODAY</span>
+          <button class="btn sm" id="dNext" type="button" aria-label="Next day">&gt;</button>
+        </div>
+        <div class="strip" id="strip"></div>
+        <div class="box meter">
+          <div class="left" id="tLeft">0<small>CAL LEFT</small></div>
+          <div class="eq" id="tEq"></div>
+          <div class="mbar" id="tBar"><div style="width:0"></div></div>
+        </div>
+        <h3>YOUR NUMBERS FOR THIS DAY</h3>
+        <div class="row">
+          <label class="f"><span>Maintenance cal</span><input id="dMaint" type="number" inputmode="numeric"></label>
+          <label class="f"><span>Cal burned (exercise)</span><input id="dBurn" type="number" inputmode="numeric" placeholder="0"></label>
+        </div>
+        <div class="hint" id="dGoal"></div>
+        <div class="hint">Merit system: you enter your own maintenance and burn, and the game trusts you. Honest numbers make the countdown honest.</div>
+
+        <h3>LOG FOOD</h3>
+        <div class="tabs" role="group" aria-label="Meal">
+          <button class="tab" type="button" data-meal="breakfast" aria-pressed="true">BREAKFAST</button>
+          <button class="tab" type="button" data-meal="lunch" aria-pressed="false">LUNCH</button>
+          <button class="tab" type="button" data-meal="dinner" aria-pressed="false">DINNER</button>
+          <button class="tab" type="button" data-meal="snacks" aria-pressed="false">SNACKS</button>
+        </div>
+        <label class="f namef"><span>Food</span><input id="fName" type="text" autocomplete="off" placeholder="Search: chicken, pizza, latte…"><div class="sugg" id="sugg" hidden></div></label>
+        <div class="row">
+          <label class="f"><span>Servings</span><input id="fQty" type="number" inputmode="decimal" step="0.25" value="1"></label>
+          <label class="f"><span>Calories</span><input id="fKcal" type="number" inputmode="numeric" placeholder="kcal"></label>
+          <button class="btn go" id="fAdd" type="button">Add</button>
+        </div>
+        <div class="hint" id="fHint">Pick from the list or type your own food and calories.</div>
+        <div class="quick" id="quick"></div>
+        <div class="oracle" id="oracle" hidden>
+          <span class="lbl" style="color:var(--boss)">Ask the oracle</span>
+          <textarea id="oText" placeholder="Describe a meal: chipotle bowl with chicken, white rice, black beans, cheese and guac"></textarea>
+          <div class="row" style="align-items:center"><button class="btn sm" id="oAsk" type="button">Estimate calories</button><span class="hint" id="oStatus"></span></div>
+          <div class="oracle-out" id="oOut"></div>
+        </div>
+        <div id="entries" class="sec"></div>
+
+        <h3>WEIGH-IN</h3>
+        <div class="row">
+          <label class="f"><span>Weight (lb)</span><input id="wIn" type="number" inputmode="decimal" step="0.1"></label>
+          <label class="f"><span>Date</span><input id="wDate" type="date"></label>
+          <button class="btn gold" id="wAdd" type="button">Log it</button>
+        </div>
+        <div class="hint">Your weight stays private. Other players only see pounds moved and % of goal.</div>
+        <div id="wList"></div>
+      </section>
+
+      <!-- QUESTS -->
+      <section id="p-quests" class="sec" hidden>
+        <div class="box" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="lbl">Wallet</span><span style="font-family:var(--display);font-size:14px;color:var(--gold)"><span class="coin"></span><span id="qCoins">0</span></span></div>
+        <div id="questList" class="sec"></div>
+      </section>
+
+      <!-- SHOP -->
+      <section id="p-shop" class="sec" hidden>
+        <div class="prev" id="shopPrev"><span class="trying" id="tryingLbl"></span></div>
+        <div class="box" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="lbl">Wallet</span><span style="font-family:var(--display);font-size:14px;color:var(--gold)"><span class="coin"></span><span id="sCoins">0</span></span></div>
+        <div class="tabs" id="shopTabs" role="group" aria-label="Category"></div>
+        <div class="grid-shop" id="shopGrid"></div>
+        <div class="hint">Earn coins in Fitness Quests: hit your daily calorie goal, finish fitness challenges, and reach weight milestones.</div>
+      </section>
+
+      <!-- CLOSET -->
+      <section id="p-closet" class="sec" hidden>
+        <div class="prev" id="closetPrev"></div>
+        <label class="f"><span>Gamertag</span><input id="clTag" type="text" maxlength="16"></label>
+        <div id="closetSlots" class="sec"></div>
+        <h3>LOOK</h3>
+        <span class="lbl">Skin</span><div class="swatches" id="clSkin"></div>
+        <span class="lbl">Hair</span><div class="chips" id="clHair"></div>
+        <span class="lbl">Hair color</span><div class="swatches" id="clHairColor"></div>
+        <span class="lbl">Build</span><div class="chips" id="clBuild"></div>
+        <h3>PRIVACY</h3>
+        <label class="row" style="align-items:center;gap:10px"><input id="clBoard" type="checkbox" style="width:auto"> <span>Show me on the leaderboard</span></label>
+        <div class="row"><button class="btn" id="clStats" type="button">Edit body stats &amp; goal</button></div>
+      </section>
+
+      <!-- RANKS -->
+      <section id="p-ranks" class="sec" hidden>
+        <div class="tabs" role="group" aria-label="Board">
+          <button class="tab" type="button" data-rank="lose" aria-pressed="true">LOSING</button>
+          <button class="tab" type="button" data-rank="gain" aria-pressed="false">GAINING</button>
+          <button class="tab" type="button" data-rank="streak" aria-pressed="false">STREAK</button>
+          <button class="tab" type="button" data-rank="earned" aria-pressed="false">COINS EARNED</button>
+        </div>
+        <div class="tabs" id="rankSort" role="group" aria-label="Sort">
+          <button class="tab" type="button" data-sort="pct" aria-pressed="true">% OF GOAL</button>
+          <button class="tab" type="button" data-sort="lbs" aria-pressed="false">POUNDS</button>
+        </div>
+        <div id="rankList" class="sec" style="gap:5px"></div>
+        <div class="hint" id="rankNote">Boards rank people by their own goal: losers against losers, gainers against gainers. Progress comes from weigh-ins only.</div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- HOME -->
+  <div class="page home" id="page-home">
+    <div class="wrap">
+      <section class="hero">
+        <h1 class="logo">FIT<span>QUEST</span></h1>
+        <p class="tagline">Burn it or build it. Count down every calorie to your goal weight, earn coins, and flex your fit on the island.</p>
+        <div class="ctas"><button class="btn lg go" id="homeMain" type="button" disabled>Loading…</button><button class="btn lg" type="button" data-tab="island">Enter the island</button></div>
+        <div class="hint" id="homeStatus" style="max-width:60ch;text-align:center">Loading your save file…</div>
+      </section>
+      <button class="card homeq" id="homeQuest" type="button" data-tab="tracker" hidden>
+        <span class="lbl" id="hqLbl" style="color:var(--hp)">CALORIES LEFT TO BURN</span>
+        <span class="hq-num" id="hqNum">0</span>
+        <span class="hpbar big"><span class="fill" id="hqFill" style="width:100%"></span></span>
+        <span class="hint" id="hqSub"></span>
+      </button>
+      <section class="how">
+        <div><b>1. MAKE A PLAYER</b>Weight, height and build set up your avatar and your quest.</div>
+        <div><b>2. COUNT DOWN</b>(Current − goal weight) × 3,500 calories. Log food daily in the Tracker and watch it drop.</div>
+        <div><b>3. EARN COINS</b>Hit your calorie goal, run, do push-ups, reach weight milestones.</div>
+        <div><b>4. GEAR UP</b>Spend coins on hats, shirts, wings and crowns. Climb the ranks on the island.</div>
+      </section>
+      <section class="home-live">
+        <div class="card"><h2>Top of the board</h2><div id="homeTop" class="sec" style="gap:5px"></div><button class="btn sm" type="button" data-tab="ranks" style="margin-top:10px;align-self:flex-start">Full leaderboard</button></div>
+        <div class="card"><h2>On the island now</h2><div id="homeOnline" class="hint"></div><button class="btn sm gold" type="button" data-tab="island" style="margin-top:10px">Join them</button></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- TRACKER -->
+  <div class="page" id="page-tracker" hidden>
+    <div class="wrap">
+      <div class="card" id="trackEmpty" hidden><h2>No quest yet</h2><p class="hint">Create a player to start counting down your calories.</p><button class="btn go" type="button" data-create="1">Create player</button></div>
+      <div id="trackMain" class="wrap" style="max-width:none">
+        <section class="arena" id="arena" aria-live="polite">
+          <div class="boss-tag" id="bossTag">BOSS: LARD LORD</div>
+          <div class="boss-stage"><div class="boss-scale" id="bossScale"><canvas id="boss" width="16" height="16" aria-hidden="true"></canvas></div></div>
+          <div class="hp-label" id="tHpLabel">CALORIES LEFT TO BURN</div>
+          <div class="hp-num" id="tHpNum">0</div>
+          <div class="hpbar big"><span class="fill" id="tHpFill" style="width:100%"></span><span class="pend" id="tHpPend" style="width:0"></span></div>
+          <div class="hp-meta"><span><b id="tLbsLeft">0</b> LB TO GO</span><span><b id="tPct">0%</b> DONE</span><span><b id="tTotal">0</b> TOTAL</span></div>
+          <div class="hp-note" id="tNote"></div>
+        </section>
+        <section class="stats">
+          <div class="card tile"><span class="lbl">Calories left today</span><span class="big" id="stToday">—</span><span class="sub" id="stTodaySub"></span></div>
+          <div class="card tile"><span class="lbl">Quest deadline</span><span class="big" id="stDead">—</span><span class="sub" id="stDeadSub"></span><span class="chip" id="stDeadChip" hidden></span></div>
+          <div class="card tile"><span class="lbl">Combo streak</span><span class="big" id="stStreak" style="color:var(--gold)">x0</span><span class="sub" id="stStreakSub"></span></div>
+          <div class="card tile"><span class="lbl">Level &amp; coins</span><span class="big" id="stLevel">LV 1</span><div class="xpbar"><div id="xpFill" style="width:0"></div></div><span class="sub" id="stLevelSub"></span></div>
+        </section>
+        <div class="card warn" id="tWarn" hidden><strong>DANGER ZONE</strong><p id="tWarnText"></p></div>
+        <div class="cols">
+          <div class="card" id="trackLogHost"></div>
+          <div class="side">
+            <div class="card"><h2>Weight map</h2><div class="chart-wrap" id="chart"></div><div class="legend"><span><i style="background:var(--mana)"></i>Weigh-ins</span><span><i style="background:var(--gold)"></i>Goal</span><span><i style="background:var(--dim)"></i>Plan to deadline</span></div></div>
+            <div class="card"><h2>Last 4 weeks</h2><div class="cal" id="cal"></div><div class="legend"><span><i style="background:var(--good)"></i>Goal hit</span><span><i style="background:var(--hp)"></i>Missed</span><span><i style="background:var(--mana)"></i>Today</span></div></div>
+            <div class="card"><h2>Rewards</h2><div class="hint" id="tTeaser"></div><div class="row" style="margin-top:10px"><button class="btn sm gold" type="button" data-tab="quests">Go to quests</button><button class="btn sm" type="button" data-tab="island">Enter the island</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="page-quests" hidden><div class="wrap narrow"><h2 class="page-h">FITNESS QUESTS</h2><div class="card" id="host-quests"></div></div></div>
+  <div class="page" id="page-shop" hidden><div class="wrap narrow"><h2 class="page-h">CATALOG</h2><div class="card" id="host-shop"></div></div></div>
+  <div class="page" id="page-closet" hidden><div class="wrap narrow"><h2 class="page-h">AVATAR</h2><div class="card" id="host-closet"></div></div></div>
+  <div class="page" id="page-ranks" hidden><div class="wrap narrow"><h2 class="page-h">LEADERBOARD</h2><div class="card" id="host-ranks"></div></div></div>
+  <div id="needPlayer" hidden><p class="hint" style="margin-top:0">Create a player first. It takes a minute and your quest starts right away.</p><button class="btn go" type="button" data-create="1">Create player</button></div>
+  </div><!-- /stage -->
+
+  <!-- create player -->
+  <div class="overlay create" id="create" hidden>
+    <div class="create-card">
+      <div>
+        <h2 id="cTitle">CREATE PLAYER</h2>
+        <div class="prev" id="createPrev"></div>
+        <span class="lbl">Build</span><div class="chips" id="cBuild"></div>
+        <span class="lbl">Skin</span><div class="swatches" id="cSkin"></div>
+        <span class="lbl">Hair</span><div class="chips" id="cHair"></div>
+        <span class="lbl">Hair color</span><div class="swatches" id="cHairColor"></div>
+      </div>
+      <form id="createForm" novalidate>
+        <label class="f"><span>Gamertag (3–16 letters, numbers, _)</span><input id="cTag" type="text" maxlength="16" autocomplete="off" placeholder="SirLiftsALot"></label>
+        <div class="grid2">
+          <label class="f"><span>Sex (for BMR math)</span><select id="cSex"><option value="male">Male</option><option value="female">Female</option></select></label>
+          <label class="f"><span>Age</span><input id="cAge" type="number" inputmode="numeric" placeholder="25"></label>
+          <label class="f"><span>Height (ft)</span><input id="cFt" type="number" inputmode="numeric" placeholder="5"></label>
+          <label class="f"><span>Height (in)</span><input id="cIn" type="number" inputmode="numeric" placeholder="9"></label>
+          <label class="f"><span>Current weight (lb)</span><input id="cWeight" type="number" inputmode="decimal" step="0.1" placeholder="170"></label>
+          <label class="f"><span>Goal weight (lb)</span><input id="cTarget" type="number" inputmode="decimal" step="0.1" placeholder="135"></label>
+          <label class="f"><span>Activity</span>
+            <select id="cAct">
+              <option value="1.2">Desk job, little exercise</option>
+              <option value="1.375" selected>Light: 1–3 workouts/wk</option>
+              <option value="1.55">Moderate: 3–5/wk</option>
+              <option value="1.725">Very active: 6–7/wk</option>
+            </select></label>
+          <label class="f"><span>Your maintenance cal</span><input id="cTdee" type="number" inputmode="numeric" placeholder="auto"></label>
+          <label class="f"><span>Deadline (optional)</span><input id="cDeadline" type="date"></label>
+          <label class="f"><span>Pace if no deadline</span>
+            <select id="cPace">
+              <option value="250">Easy: 250 cal/day</option>
+              <option value="500" selected>Normal: 500 cal/day</option>
+              <option value="750">Hard: 750 cal/day</option>
+              <option value="1000">Expert: 1,000 cal/day</option>
+            </select></label>
+        </div>
+        <div class="summary" id="cSummary"></div>
+        <div class="warnbox" id="cWarn" hidden></div>
+        <div class="row" style="align-items:center"><button class="btn go lg" id="cGo" type="submit">Spawn</button><button class="btn" id="cCancel" type="button" hidden>Cancel</button><span class="err" id="cErr"></span></div>
+        <div class="row" id="cResetRow" hidden style="align-items:center">
+          <button class="btn ghost sm" id="cReset" type="button">Reset my progress…</button>
+          <span id="cResetConfirm" hidden><span class="err">Erase all logs, weigh-ins, coins and items?</span> <button class="btn red sm" id="cResetYes" type="button">Erase</button> <button class="btn sm" id="cResetNo" type="button">Keep</button></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden><span class="t1" id="toastA"></span><span class="t2" id="toastB"></span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const KCAL = 3500;
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const todayKey = () => ymd(new Date());
+const addDays = (k, n) => { const d = parseKey(k); d.setDate(d.getDate() + n); return ymd(d); };
+const diffDays = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
+const pretty = (k, o) => parseKey(k).toLocaleDateString('en-US', o || { weekday: 'short', month: 'short', day: 'numeric' });
+const uid = () => Math.random().toString(36).slice(2, 10);
+const isTyping = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'); };
+
+// ================= content =================
+const FOODS = [
+  ['Egg, large','1 egg',72],['Egg whites','3 whites',51],['Scrambled eggs','2 eggs',200],['Bacon','3 slices',130],['Breakfast sausage','2 links',170],
+  ['Oatmeal, cooked','1 cup',166],['Greek yogurt, nonfat plain','170 g',100],['Greek yogurt, whole milk','170 g',165],['Cereal','1 cup',110],['Granola','1/2 cup',300],
+  ['Pancakes','3 medium',350],['Waffle','1 waffle',220],['Bagel, plain','1 bagel',280],['Cream cheese','2 tbsp',100],['Croissant','1 croissant',230],
+  ['Blueberry muffin','1 muffin',425],['Donut, glazed','1 donut',260],['White bread','1 slice',75],['Whole wheat bread','1 slice',80],['Peanut butter','2 tbsp',190],
+  ['Butter','1 tbsp',102],['Olive oil','1 tbsp',119],['Banana','1 medium',105],['Apple','1 medium',95],['Orange','1 medium',62],
+  ['Strawberries','1 cup',49],['Blueberries','1 cup',84],['Grapes','1 cup',104],['Avocado','1/2 fruit',120],['Carrots','1 cup',52],
+  ['Broccoli','1 cup',31],['Cucumber','1 cup',16],['Salad greens','2 cups',15],['Caesar salad','1 side',190],['Ranch dressing','2 tbsp',130],
+  ['Milk, whole','1 cup',149],['Milk, 2%','1 cup',122],['Milk, skim','1 cup',83],['Oat milk','1 cup',120],['Almond milk, unsweetened','1 cup',30],
+  ['Cheddar cheese','1 oz',115],['Mozzarella','1 oz',85],['String cheese','1 stick',80],['Cottage cheese, low fat','1/2 cup',90],
+  ['Chicken breast, cooked','4 oz',187],['Chicken thigh, cooked','4 oz',230],['Ground beef 80/20, cooked','4 oz',307],['Ground beef 93/7, cooked','4 oz',200],
+  ['Sirloin steak','6 oz',350],['Pork chop','5 oz',280],['Salmon, cooked','4 oz',233],['Tuna, canned in water','1 can',120],['Shrimp','4 oz',112],
+  ['Tofu, firm','1/2 block',180],['Turkey deli slices','2 oz',60],['Beef jerky','1 oz',116],
+  ['White rice, cooked','1 cup',205],['Brown rice, cooked','1 cup',218],['Pasta, cooked','1 cup',220],['Baked potato','1 medium',160],['Sweet potato','1 medium',112],
+  ['Black beans','1/2 cup',114],['Hummus','2 tbsp',70],['Flour tortilla','10 in',210],['Corn tortilla','1 tortilla',52],
+  ['Cheese pizza','1 slice',285],['Pepperoni pizza','1 slice',313],['Cheeseburger, fast food','1 burger',300],['Double cheeseburger, large','1 burger',650],
+  ['French fries','medium order',365],['Hot dog with bun','1',290],['Chicken nuggets','6 pieces',270],['Chicken burrito','1 burrito',650],['Burrito bowl','1 bowl',700],
+  ['Instant ramen','1 pack',380],['Pho','large bowl',550],['California roll','8 pieces',255],['Fried rice','1 cup',240],['Pad thai','1 plate',650],
+  ['Turkey sandwich','1 sandwich',350],['PB&J sandwich','1 sandwich',380],['Mac and cheese','1 cup',310],['Spaghetti with meat sauce','1 plate',600],
+  ['Protein bar','1 bar',200],['Whey protein shake','1 scoop + water',120],['Mass gainer shake','1 serving',650],['Almonds','1 oz',164],['Potato chips','1 oz',152],
+  ['Popcorn, air-popped','3 cups',93],['Rice cake','1 cake',35],['Dark chocolate','1 oz',170],['Ice cream','1/2 cup',137],['Chocolate chip cookie','1 large',220],
+  ['Black coffee','12 oz',5],['Latte, whole milk','16 oz',220],['Latte, oat milk','16 oz',200],['Soda','12 oz can',140],['Diet soda','12 oz can',0],
+  ['Orange juice','1 cup',112],['Bubble tea','16 oz',350],['Energy drink','16 oz can',220],['Sports drink','20 oz',140],
+  ['Beer','12 oz',153],['Light beer','12 oz',103],['Wine','5 oz glass',123],['Shot of liquor','1.5 oz',97]
+];
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
+const SKINS = ['#f6d3b3', '#eab68f', '#c98d5f', '#a46a3e', '#7a4a28', '#4e2f1c'];
+const HAIRS = ['none', 'short', 'spiky', 'long', 'bun', 'afro'];
+const HAIR_COLORS = ['#1d1611', '#5a3a22', '#d9b45a', '#b5472a', '#e8e8e8', '#3d6fe0'];
+const BUILDS = [
+  { id: 'slim', name: 'Slim', tw: 1.7, td: 0.85, lw: 0.82 },
+  { id: 'average', name: 'Average', tw: 2.0, td: 1.0, lw: 1.0 },
+  { id: 'athletic', name: 'Athletic', tw: 2.35, td: 1.05, lw: 1.1 },
+  { id: 'stocky', name: 'Stocky', tw: 2.3, td: 1.3, lw: 1.12 },
+  { id: 'big', name: 'Big', tw: 2.55, td: 1.55, lw: 1.18 }
+];
+const CATALOG = [
+  { id: 'cap-red', slot: 'hat', kind: 'cap', name: 'Red Cap', price: 120, color: '#e23d3d' },
+  { id: 'cap-navy', slot: 'hat', kind: 'cap', name: 'Navy Cap', price: 120, color: '#2a3f8f' },
+  { id: 'headband', slot: 'hat', kind: 'headband', name: 'Sweatband', price: 80, color: '#f1ead6' },
+  { id: 'beanie', slot: 'hat', kind: 'beanie', name: 'Green Beanie', price: 150, color: '#3aa85a' },
+  { id: 'party', slot: 'hat', kind: 'party', name: 'Party Hat', price: 250, color: '#ff5fb0' },
+  { id: 'chef', slot: 'hat', kind: 'chef', name: 'Chef Hat', price: 300, color: '#ffffff' },
+  { id: 'cowboy', slot: 'hat', kind: 'cowboy', name: 'Cowboy Hat', price: 450, color: '#8a5a2b' },
+  { id: 'tophat', slot: 'hat', kind: 'tophat', name: 'Top Hat', price: 650, color: '#1b1726' },
+  { id: 'viking', slot: 'hat', kind: 'viking', name: 'Viking Helm', price: 900, color: '#9aa3ad' },
+  { id: 'halo', slot: 'hat', kind: 'halo', name: 'Halo', price: 3000, color: '#ffe066' },
+  { id: 'crown', slot: 'hat', kind: 'crown', name: 'Crown', price: 5000, color: '#ffc94a' },
+  { id: 'shades', slot: 'face', kind: 'shades', name: 'Shades', price: 200, color: '#111111' },
+  { id: 'nerd', slot: 'face', kind: 'nerd', name: 'Nerd Glasses', price: 150, color: '#2b2b2b' },
+  { id: 'stache', slot: 'face', kind: 'stache', name: 'Mustache', price: 180, color: '#4a2a14' },
+  { id: 'tee-white', slot: 'shirt', kind: 'tee', name: 'White Tee', price: 0, color: '#eeeeee' },
+  { id: 'tee-black', slot: 'shirt', kind: 'tee', name: 'Black Tee', price: 0, color: '#2e2938' },
+  { id: 'tee-red', slot: 'shirt', kind: 'tee', name: 'Red Tee', price: 60, color: '#d83a3a' },
+  { id: 'tee-blue', slot: 'shirt', kind: 'tee', name: 'Blue Tee', price: 60, color: '#3a6fd8' },
+  { id: 'tee-green', slot: 'shirt', kind: 'tee', name: 'Green Tee', price: 60, color: '#3aa85a' },
+  { id: 'tee-purple', slot: 'shirt', kind: 'tee', name: 'Purple Tee', price: 60, color: '#8a4fd8' },
+  { id: 'tank', slot: 'shirt', kind: 'tank', name: 'Gym Tank', price: 150, color: '#ff8a3d' },
+  { id: 'hoodie-gray', slot: 'shirt', kind: 'hoodie', name: 'Gray Hoodie', price: 350, color: '#8c8a99' },
+  { id: 'hoodie-pink', slot: 'shirt', kind: 'hoodie', name: 'Pink Hoodie', price: 350, color: '#ff7fbf' },
+  { id: 'jersey', slot: 'shirt', kind: 'jersey', name: 'Team Jersey', price: 500, color: '#1f4fd1', c2: '#ffffff', num: '23' },
+  { id: 'track-gold', slot: 'shirt', kind: 'track', name: 'Gold Track Top', price: 2500, color: '#e0a92b', c2: '#fff3c4' },
+  { id: 'jeans-blue', slot: 'pants', kind: 'long', name: 'Blue Jeans', price: 0, color: '#33508f' },
+  { id: 'shorts-black', slot: 'pants', kind: 'shorts', name: 'Gym Shorts', price: 100, color: '#26222e' },
+  { id: 'shorts-red', slot: 'pants', kind: 'shorts', name: 'Red Shorts', price: 100, color: '#d83a3a' },
+  { id: 'joggers', slot: 'pants', kind: 'long', name: 'Gray Joggers', price: 200, color: '#6f6d7c' },
+  { id: 'pants-gold', slot: 'pants', kind: 'long', name: 'Gold Track Pants', price: 2000, color: '#e0a92b' },
+  { id: 'sneak-white', slot: 'shoes', kind: 'shoe', name: 'White Sneakers', price: 0, color: '#f4f4f4' },
+  { id: 'sneak-red', slot: 'shoes', kind: 'shoe', name: 'Red Runners', price: 150, color: '#e23d3d' },
+  { id: 'sneak-neon', slot: 'shoes', kind: 'shoe', name: 'Neon Runners', price: 300, color: '#7dff4f' },
+  { id: 'sneak-gold', slot: 'shoes', kind: 'shoe', name: 'Gold Kicks', price: 1500, color: '#ffc94a' },
+  { id: 'backpack', slot: 'back', kind: 'backpack', name: 'Backpack', price: 300, color: '#3a6fd8' },
+  { id: 'cape', slot: 'back', kind: 'cape', name: 'Hero Cape', price: 800, color: '#d83a3a' },
+  { id: 'jetpack', slot: 'back', kind: 'jetpack', name: 'Jetpack', price: 2000, color: '#9aa3ad' },
+  { id: 'wings', slot: 'back', kind: 'wings', name: 'Angel Wings', price: 4000, color: '#ffffff' },
+  { id: 'shaker', slot: 'gear', kind: 'shaker', name: 'Protein Shaker', price: 150, color: '#4fc8ff' },
+  { id: 'dumbbell', slot: 'gear', kind: 'dumbbell', name: 'Dumbbell', price: 250, color: '#3b3946' },
+  { id: 'trophy', slot: 'gear', kind: 'trophy', name: 'Golden Trophy', price: 3500, color: '#ffc94a' }
+];
+const ITEM = Object.fromEntries(CATALOG.map(i => [i.id, i]));
+const SLOTS = [['hat', 'Hats'], ['face', 'Face'], ['shirt', 'Shirts'], ['pants', 'Pants'], ['shoes', 'Shoes'], ['back', 'Back'], ['gear', 'Gear']];
+const STARTER = ['tee-white', 'tee-black', 'jeans-blue', 'sneak-white'];
+const CHALLENGES = [
+  { id: 'run1', name: 'Run 1 mile', coins: 25, kcal: 100 },
+  { id: 'run3', name: 'Run 3 miles', coins: 80, kcal: 300 },
+  { id: 'steps10k', name: 'Walk 10,000 steps', coins: 50, kcal: 350 },
+  { id: 'push25', name: 'Do 25 push-ups', coins: 20, kcal: 10 },
+  { id: 'push50', name: 'Do 50 push-ups', coins: 45, kcal: 20 },
+  { id: 'squat100', name: 'Do 100 squats', coins: 40, kcal: 40 },
+  { id: 'plank2', name: 'Hold a 2-minute plank', coins: 25, kcal: 10 },
+  { id: 'work30', name: '30-minute workout', coins: 40, kcal: 250 },
+  { id: 'lift45', name: '45-minute strength session', coins: 50, kcal: 200 }
+];
+const STREAKS = [[3, 100], [7, 300], [14, 700], [30, 2000]];
+const defaultLook = () => ({ skin: 1, hair: 'short', hairColor: 1, hat: null, face: null, shirt: 'tee-white', pants: 'jeans-blue', shoes: 'sneak-white', back: null, gear: null });
+
+// ================= state =================
+let S = { profile: null, weighIns: [], ach: {}, claims: {}, days: {} };
+let ME = null;           // public player card
+let PLAYERS = [];        // everyone's player cards (leaderboard)
+const view = { mode: 'title', panel: null, date: todayKey(), meal: 'breakfast', pick: null, sound: true, shopSlot: 'hat', tryOn: null, rankTab: 'lose', rankSort: 'pct', readOnly: false, draft: null };
+try { view.sound = localStorage.getItem('fq-sound') !== 'off'; } catch (e) {}
+
+// ================= persistence =================
+const LS_KEY = 'fit-quest-v2', LS_V1 = 'deficit-quest-v1';
+const store = {
+  mode: 'none', db: null, uid: null, busy: {}, dirty: {},
+  pRef() { return this.db.doc('data/users/' + this.uid + '/profile'); },
+  dayRef(k) { return this.pRef().collection('days').doc(k); },
+  meRef() { return this.db.doc('players/' + this.uid); },
+  readLocal(key) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } },
+  writeLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify({ S, ME })); return true; } catch (e) { return false; } },
+  async init() {
+    let db = null, user = null, id = null;
+    try { if (window.claude && window.claude.use) [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); } catch (e) {}
+    try { id = user ? await user.id() : null; } catch (e) {}
+    if (db && id) {
+      this.mode = 'db'; this.db = db; this.uid = id;
+      try {
+        const [snap, me] = await Promise.all([this.pRef().get(), this.meRef().get()]);
+        if (snap.exists) {
+          const d = snap.data();
+          S.profile = d.profile ? Object.assign({}, d.profile) : null;
+          S.weighIns = (d.weighIns || []).map(w => ({ date: w.date, w: w.w }));
+          S.ach = Object.assign({}, d.ach || {}); S.claims = Object.assign({}, d.claims || {});
+          const days = await this.pRef().collection('days').limit(1000).get();
+          days.docs.forEach(doc => { S.days[doc.id] = normDay(doc.data()); });
+        }
+        if (me.exists) ME = cloneMe(me.data());
+        if (!snap.exists) {
+          const local = this.readLocal(LS_KEY) || null;
+          if (local && local.S && local.S.profile) { S = normState(local.S); ME = local.ME ? cloneMe(local.ME) : null; this.savePrivate(); Object.keys(S.days).forEach(k => this.saveDay(k)); if (ME) this.saveMe(); }
+        }
+        this.status = 'Signed in. Your progress saves to your account.';
+      } catch (e) { this.status = 'Could not reach your save file. Changes stay on this page until you reload.'; }
+    } else {
+      this.mode = 'local';
+      const local = this.readLocal(LS_KEY);
+      if (local && local.S) { S = normState(local.S); ME = local.ME ? cloneMe(local.ME) : null; }
+      else { const v1 = this.readLocal(LS_V1); if (v1 && v1.profile) S = normState(v1); }
+      this.status = 'Guest mode: progress saves in this browser only. Sign in to claude.ai with access to this page to meet other players and join the leaderboard.';
+    }
+  },
+  async queue(key, refFn, bodyFn) {
+    if (view.readOnly) return;
+    if (this.mode === 'local') { this.writeLocal(); return; }
+    if (this.mode !== 'db') return;
+    if (this.busy[key]) { this.dirty[key] = true; return; }
+    this.busy[key] = true;
+    const attempt = () => refFn().set(bodyFn());
+    try { await attempt(); }
+    catch (e) {
+      if (e && e.code === 'unavailable') { await new Promise(r => setTimeout(r, 700 + Math.random() * 700)); try { await attempt(); } catch (e2) { toast('SAVE FAILED', 'Check your connection'); } }
+      else if (e && e.code === 'invalid_argument') { view.readOnly = true; toast('VIEW-ONLY ACCESS', 'Ask the owner for Contributor access to save'); }
+      else if (e && e.code === 'quota_exceeded') toast('STORAGE FULL', 'Delete old days to keep saving');
+      else toast('SAVE FAILED', (e && e.code) || 'Unknown error');
+    }
+    this.busy[key] = false;
+    if (this.dirty[key]) { this.dirty[key] = false; this.queue(key, refFn, bodyFn); }
+  },
+  savePrivate() { this.queue('p', () => this.pRef(), () => ({ profile: S.profile, weighIns: S.weighIns, ach: S.ach, claims: S.claims })); },
+  saveDay(k) { this.queue('d:' + k, () => this.dayRef(k), () => { const d = S.days[k] || newDay(); return { foods: d.foods, burned: d.burned || 0, tdee: d.tdee || null }; }); },
+  saveMe() { if (ME) this.queue('me', () => this.meRef(), () => ME); },
+  async wipe() {
+    if (this.mode === 'db') { try { await Promise.all(Object.keys(S.days).map(k => this.dayRef(k).delete())); await this.pRef().delete(); await this.meRef().delete(); } catch (e) {} }
+    try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_V1); } catch (e) {}
+  },
+  subscribePlayers() {
+    if (this.mode !== 'db') return;
+    try {
+      this.db.collection('players').limit(500).onSnapshot(snap => {
+        PLAYERS = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        if (view.panel === 'ranks' || view.tab === 'ranks') renderRanks();
+        if (view.tab === 'home') renderHome();
+        updatePodium();
+      }, () => {});
+    } catch (e) {}
+  }
+};
+const newDay = () => ({ foods: [], burned: 0, tdee: null });
+function normDay(b) {
+  const d = { foods: (b.foods || []).map(f => Object.assign({}, f)), burned: +b.burned || 0, tdee: b.tdee || null };
+  if (!b.burned && Array.isArray(b.ex)) d.burned = b.ex.reduce((a, e) => a + (+e.kcal || 0), 0); // v1 exercise list
+  return d;
+}
+function normState(s) {
+  const out = { profile: s.profile ? Object.assign({}, s.profile) : null, weighIns: (s.weighIns || []).slice(), ach: Object.assign({}, s.ach || {}), claims: Object.assign({}, s.claims || {}), days: {} };
+  Object.keys(s.days || {}).forEach(k => { out.days[k] = normDay(s.days[k]); });
+  return out;
+}
+function cloneMe(m) { const o = JSON.parse(JSON.stringify(m)); o.look = sanitizeLook(o.look); o.owned = Array.isArray(o.owned) ? o.owned.filter(id => ITEM[id]) : STARTER.slice(); STARTER.forEach(s => { if (!o.owned.includes(s)) o.owned.push(s); }); o.coins = +o.coins || 0; o.earned = +o.earned || 0; return o; }
+function sanitizeLook(l) {
+  const d = defaultLook(); l = l && typeof l === 'object' ? l : {};
+  const out = { skin: clamp(Math.round(+l.skin || 0), 0, SKINS.length - 1), hair: HAIRS.includes(l.hair) ? l.hair : d.hair, hairColor: clamp(Math.round(+l.hairColor || 0), 0, HAIR_COLORS.length - 1) };
+  SLOTS.forEach(([s]) => { const id = l[s]; out[s] = id && ITEM[id] && ITEM[id].slot === s ? id : (d[s] || null); });
+  return out;
+}
+
+// ================= sound =================
+let actx = null;
+function beep(notes) {
+  if (!view.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    let t = actx.currentTime;
+    notes.forEach(([f, d]) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = f; g.gain.setValueAtTime(0.045, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + d); t += d * 0.9; });
+  } catch (e) {}
+}
+const SFX = { add: [[660, .06], [880, .08]], hit: [[220, .08], [160, .08], [110, .14]], lvl: [[523, .09], [659, .09], [784, .09], [1047, .2]], coin: [[988, .06], [1319, .16]], del: [[300, .06], [200, .08]], buy: [[784, .07], [988, .07], [1175, .07], [1568, .18]], chat: [[1200, .03]] };
+
+// ================= math =================
+const dayOf = k => S.days[k] || newDay();
+const eatenOf = d => d.foods.reduce((a, f) => a + (+f.kcal || 0), 0);
+function tdeeFor(p, weight) {
+  if (p.tdeeOverride > 0) return Math.round(p.tdeeOverride);
+  const kg = weight * 0.453592, cm = ((+p.heightFt || 5) * 12 + (+p.heightIn || 0)) * 2.54;
+  const bmr = 10 * kg + 6.25 * cm - 5 * (+p.age || 25) + (p.sex === 'female' ? -161 : 5);
+  return Math.round(bmr * (+p.activity || 1.375));
+}
+function calc(p) {
+  const today = todayKey(), wi = S.weighIns;
+  const start = +p.startWeight, target = +p.targetWeight, dir = target < start ? -1 : 1; // -1 = losing
+  const cur = wi.length ? wi[wi.length - 1].w : start;
+  const lastW = wi.length ? wi[wi.length - 1].date : (p.startDate || today);
+  const baseTdee = tdeeFor(p, cur);
+  const floor = p.sex === 'female' ? 1200 : 1500;
+  const totalHP = Math.abs(start - target) * KCAL;
+  const weightHP = Math.max(0, (target - cur) * dir * KCAL);
+  const tdeeOn = k => (S.days[k] && S.days[k].tdee) || baseTdee;
+  // daily progress: dir × (eaten − maintenance − burned); positive means toward the goal
+  const prog = k => { const d = S.days[k]; if (!d) return 0; return dir < 0 ? tdeeOn(k) + d.burned - eatenOf(d) : eatenOf(d) - tdeeOn(k) - d.burned; };
+  let banked = 0, bankedDays = 0;
+  Object.keys(S.days).forEach(k => { if (k > lastW && k < today && S.days[k].foods.length) { banked += prog(k); bankedDays++; } });
+  const hp = Math.max(0, weightHP - banked);
+  const td = dayOf(today);
+  const pending = td.foods.length ? Math.max(0, prog(today)) : 0;
+
+  let daysLeft = null, needDaily = null, deadlinePassed = false;
+  if (p.deadline) { daysLeft = diffDays(today, p.deadline); if (daysLeft > 0) needDaily = hp / daysLeft; else deadlinePassed = true; }
+  const planned = needDaily != null ? needDaily : (+p.pace || 500);
+  const budgetOn = k => { const t = tdeeOn(k); return dir < 0 ? Math.max(floor, Math.round(t - planned)) : Math.round(t + planned); };
+  const budget = budgetOn(today);
+  const tooFast = needDaily != null && (needDaily > 1000 || (dir < 0 && baseTdee - needDaily < floor));
+  const eff = Math.max(1, Math.abs(budget - baseTdee));
+  const etaDate = hp > 0 ? addDays(today, Math.ceil(hp / eff)) : today;
+  // a day "hits" when food lands in the target band; losing never rewards eating under the floor
+  const hit = k => {
+    const d = S.days[k]; if (!d || !d.foods.length) return null;
+    const e = eatenOf(d), b = budgetOn(k) + d.burned;
+    return dir < 0 ? (e <= b && e >= Math.min(floor, b)) : e >= b;
+  };
+  let streak = 0;
+  for (let k = addDays(today, -1); hit(k) === true; k = addDays(k, -1)) streak++;
+  let best = streak, run = 0, prev = null;
+  Object.keys(S.days).filter(k => k < today).sort().forEach(k => { if (hit(k)) { run = prev && addDays(prev, 1) === k && run ? run + 1 : 1; best = Math.max(best, run); } else run = 0; prev = k; });
+  const movedScale = (cur - start) * dir;
+  const pctScale = totalHP > 0 ? movedScale * KCAL / totalHP * 100 : 0;
+  const lbsMoved = Math.max(0, (totalHP - hp) / KCAL);
+  const pct = totalHP > 0 ? clamp((1 - hp / totalHP) * 100, 0, 100) : 0;
+  const level = Math.floor(lbsMoved) + 1;
+  return { today, dir, cur, lastW, baseTdee, tdeeOn, floor, totalHP, weightHP, banked, bankedDays, hp, pending, daysLeft, needDaily, deadlinePassed, planned, budget, budgetOn, tooFast, etaDate, hit, prog, streak, best, movedScale, pctScale, lbsMoved, pct, level };
+}
+
+// ================= three.js world =================
+const cv = $('world');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false });
+renderer.setPixelRatio(0.5);
+const scene = new THREE.Scene();
+const SKY = new THREE.Color('#7fb6ff');
+scene.background = SKY;
+scene.fog = new THREE.Fog('#9cc6ff', 60, 140);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+scene.add(new THREE.HemisphereLight('#dfefff', '#4a6a3a', 0.95));
+const sun = new THREE.DirectionalLight('#fff4dc', 0.55); sun.position.set(30, 50, 20); scene.add(sun);
+
+const GEO = {}, MAT = {};
+const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; return GEO[k] || (GEO[k] = new THREE.BoxGeometry(w, h, d)); };
+const cyl = (a, b, h, s, open) => { const k = 'c' + a + ',' + b + ',' + h + ',' + s + open; return GEO[k] || (GEO[k] = new THREE.CylinderGeometry(a, b, h, s || 10, 1, !!open)); };
+const lam = c => MAT[c] || (MAT[c] = new THREE.MeshLambertMaterial({ color: c }));
+const flat = c => MAT['f' + c] || (MAT['f' + c] = new THREE.MeshBasicMaterial({ color: c }));
+function mk(geo, m, x, y, z) { const o = new THREE.Mesh(geo, m); o.position.set(x || 0, y || 0, z || 0); return o; }
+function tex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); }
+  return t;
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const f = v => clamp(Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt), 0, 255);
+  return '#' + [f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+// ---------- avatar ----------
+const FACE = {}, SHIRT = {};
+function faceMat(skin) {
+  return FACE[skin] || (FACE[skin] = new THREE.MeshLambertMaterial({ map: tex(16, 16, g => {
+    g.fillStyle = skin; g.fillRect(0, 0, 16, 16); g.fillStyle = '#16121f';
+    g.fillRect(4, 6, 2, 3); g.fillRect(10, 6, 2, 3); g.fillRect(5, 11, 6, 1); g.fillRect(4, 10, 1, 1); g.fillRect(11, 10, 1, 1);
+    g.fillStyle = '#ffffff'; g.fillRect(4, 6, 1, 1); g.fillRect(10, 6, 1, 1);
+  }) }));
+}
+function shirtFront(it) {
+  return SHIRT[it.id] || (SHIRT[it.id] = new THREE.MeshLambertMaterial({ map: tex(32, 32, g => {
+    g.fillStyle = it.color; g.fillRect(0, 0, 32, 32);
+    if (it.kind === 'tee' || it.kind === 'tank') { g.fillStyle = shade(it.color, -0.25); g.fillRect(10, 0, 12, 3); }
+    if (it.kind === 'hoodie') { g.fillStyle = shade(it.color, -0.2); g.fillRect(7, 18, 18, 10); g.fillStyle = '#f1ead6'; g.fillRect(12, 2, 2, 8); g.fillRect(18, 2, 2, 8); }
+    if (it.kind === 'jersey') { g.fillStyle = it.c2; g.fillRect(0, 0, 32, 4); g.fillRect(0, 28, 32, 4); g.font = 'bold 16px monospace'; g.textAlign = 'center'; g.fillText(it.num || '23', 16, 23); }
+    if (it.kind === 'track') { g.fillStyle = it.c2; g.fillRect(4, 0, 3, 32); g.fillRect(25, 0, 3, 32); g.fillStyle = shade(it.color, -0.35); g.fillRect(15, 0, 2, 32); }
+  }) }));
+}
+function buildAvatar(look, buildId, sc) {
+  look = sanitizeLook(look);
+  const b = BUILDS.find(x => x.id === buildId) || BUILDS[1];
+  const skin = SKINS[look.skin], skinM = lam(skin);
+  const shirt = ITEM[look.shirt] || ITEM['tee-white'], pants = ITEM[look.pants] || ITEM['jeans-blue'], shoes = ITEM[look.shoes] || ITEM['sneak-white'];
+  const { tw, td, lw } = b;
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const shirtM = lam(shirt.color);
+  // legs
+  const leg = x => {
+    const piv = new THREE.Group(); piv.position.set(x, 2, 0);
+    if (pants.kind === 'shorts') { piv.add(mk(bx(lw, 0.95, lw), lam(pants.color), 0, -0.475, 0)); piv.add(mk(bx(lw * 0.96, 0.85, lw * 0.96), skinM, 0, -1.33, 0)); }
+    else piv.add(mk(bx(lw, 1.78, lw), lam(pants.color), 0, -0.89, 0));
+    piv.add(mk(bx(lw * 1.06, 0.26, lw * 1.3), lam(shoes.color), 0, -1.87, 0.1));
+    body.add(piv); return piv;
+  };
+  const legL = leg(lw * 0.52), legR = leg(-lw * 0.52);
+  // torso
+  const front = shirtFront(shirt);
+  body.add(mk(bx(tw, 2, td), [shirtM, shirtM, shirtM, shirtM, front, shirtM], 0, 3, 0));
+  if (shirt.kind === 'hoodie') body.add(mk(bx(tw * 0.6, 0.55, 0.4), lam(shade(shirt.color, -0.15)), 0, 4.0, -td / 2 - 0.15));
+  // arms
+  const arm = x => {
+    const piv = new THREE.Group(); piv.position.set(x, 3.9, 0);
+    if (shirt.kind === 'tank') piv.add(mk(bx(lw * 0.92, 1.9, lw * 0.92), skinM, 0, -0.95, 0));
+    else { piv.add(mk(bx(lw * 0.95, shirt.kind === 'hoodie' || shirt.kind === 'track' ? 1.6 : 0.85, lw * 0.95), shirtM, 0, shirt.kind === 'hoodie' || shirt.kind === 'track' ? -0.8 : -0.425, 0)); piv.add(mk(bx(lw * 0.9, shirt.kind === 'hoodie' || shirt.kind === 'track' ? 0.32 : 1.07, lw * 0.9), skinM, 0, shirt.kind === 'hoodie' || shirt.kind === 'track' ? -1.76 : -1.38, 0)); }
+    body.add(piv); return piv;
+  };
+  const armL = arm(tw / 2 + lw * 0.48), armR = arm(-(tw / 2 + lw * 0.48));
+  // head
+  const head = new THREE.Group(); head.position.set(0, 4.65, 0); body.add(head);
+  head.add(mk(bx(1.2, 1.2, 1.2), [skinM, skinM, skinM, skinM, faceMat(skin), skinM]));
+  const hc = lam(HAIR_COLORS[look.hairColor]);
+  let top = 0.6;
+  if (look.hair !== 'none') {
+    if (look.hair === 'afro') { head.add(mk(bx(1.75, 1.15, 1.6), hc, 0, 0.55, -0.15)); top = 1.1; }
+    else {
+      head.add(mk(bx(1.28, 0.32, 1.28), hc, 0, 0.62, 0)); head.add(mk(bx(1.28, 0.7, 0.2), hc, 0, 0.3, -0.58)); top = 0.76;
+      if (look.hair === 'spiky') [[-0.35, 0], [0, 0.15], [0.35, 0], [0, -0.3]].forEach(([x, z]) => { const s = mk(new THREE.ConeGeometry(0.22, 0.45, 4), hc, x, 0.98, z); head.add(s); });
+      if (look.hair === 'long') head.add(mk(bx(1.3, 1.5, 0.25), hc, 0, -0.15, -0.62));
+      if (look.hair === 'bun') head.add(mk(bx(0.5, 0.45, 0.5), hc, 0, 0.95, -0.3));
+    }
+  }
+  const hat = ITEM[look.hat];
+  if (hat) {
+    const m = lam(hat.color);
+    switch (hat.kind) {
+      case 'cap': head.add(mk(bx(1.3, 0.42, 1.3), m, 0, top + 0.08, 0)); head.add(mk(bx(1.2, 0.08, 0.7), m, 0, top - 0.08, 0.9)); break;
+      case 'headband': head.add(mk(bx(1.3, 0.22, 1.3), m, 0, 0.3, 0)); break;
+      case 'beanie': head.add(mk(bx(1.34, 0.62, 1.34), m, 0, top + 0.1, 0)); head.add(mk(bx(0.3, 0.3, 0.3), lam('#f1ead6'), 0, top + 0.55, 0)); break;
+      case 'party': head.add(mk(new THREE.ConeGeometry(0.45, 1.1, 8), m, 0, top + 0.55, 0)); head.add(mk(new THREE.SphereGeometry(0.13, 6, 4), lam('#ffe066'), 0, top + 1.12, 0)); break;
+      case 'chef': head.add(mk(cyl(0.62, 0.58, 0.55, 12), m, 0, top + 0.27, 0)); { const p = mk(new THREE.SphereGeometry(0.75, 10, 6), m, 0, top + 0.72, 0); p.scale.y = 0.6; head.add(p); } break;
+      case 'cowboy': head.add(mk(cyl(1.25, 1.25, 0.08, 16), m, 0, top, 0)); head.add(mk(cyl(0.6, 0.66, 0.62, 12), m, 0, top + 0.33, 0)); head.add(mk(cyl(0.67, 0.67, 0.12, 12), lam('#3a2414'), 0, top + 0.1, 0)); break;
+      case 'tophat': head.add(mk(cyl(0.95, 0.95, 0.06, 16), m, 0, top, 0)); head.add(mk(cyl(0.6, 0.6, 1.15, 16), m, 0, top + 0.6, 0)); head.add(mk(cyl(0.61, 0.61, 0.16, 16), lam('#d83a3a'), 0, top + 0.12, 0)); break;
+      case 'viking': head.add(mk(new THREE.SphereGeometry(0.72, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), m, 0, top - 0.25, 0)); [-1, 1].forEach(s => { const h = mk(new THREE.ConeGeometry(0.14, 0.7, 6), lam('#f1ead6'), s * 0.78, top + 0.05, 0); h.rotation.z = -s * 0.9; head.add(h); }); break;
+      case 'halo': { const t = mk(new THREE.TorusGeometry(0.55, 0.08, 6, 18), flat(hat.color), 0, top + 0.5, 0); t.rotation.x = Math.PI / 2; head.add(t); } break;
+      case 'crown': { const cm = new THREE.MeshLambertMaterial({ color: hat.color, side: THREE.DoubleSide }); head.add(mk(cyl(0.64, 0.64, 0.35, 10, true), cm, 0, top + 0.12, 0)); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; head.add(mk(new THREE.ConeGeometry(0.11, 0.32, 4), m, Math.sin(a) * 0.6, top + 0.44, Math.cos(a) * 0.6)); } head.add(mk(bx(0.18, 0.18, 0.08), flat('#ff4d5e'), 0, top + 0.14, 0.65)); } break;
+    }
+  }
+  const face = ITEM[look.face];
+  if (face) {
+    const m = lam(face.color);
+    if (face.kind === 'shades') head.add(mk(bx(1.04, 0.24, 0.08), m, 0, 0.13, 0.63));
+    if (face.kind === 'nerd') { [-0.27, 0.27].forEach(x => { head.add(mk(bx(0.42, 0.34, 0.05), m, x, 0.13, 0.62)); head.add(mk(bx(0.3, 0.22, 0.06), lam('#cfe8ff'), x, 0.13, 0.63)); }); }
+    if (face.kind === 'stache') head.add(mk(bx(0.6, 0.14, 0.08), m, 0, -0.14, 0.63));
+  }
+  const back = ITEM[look.back];
+  if (back) {
+    const m = lam(back.color), z = -td / 2;
+    if (back.kind === 'backpack') { body.add(mk(bx(tw * 0.7, 1.35, 0.5), m, 0, 3.05, z - 0.25)); body.add(mk(bx(tw * 0.72, 0.4, 0.52), lam(shade(back.color, -0.25)), 0, 3.6, z - 0.25)); }
+    if (back.kind === 'cape') { const c = mk(bx(tw * 0.95, 2.5, 0.08), m, 0, 2.8, z - 0.12); c.rotation.x = 0.14; body.add(c); }
+    if (back.kind === 'jetpack') { [-0.35, 0.35].forEach(x => { body.add(mk(cyl(0.27, 0.27, 1.3, 8), m, x, 3.15, z - 0.32)); const f = mk(new THREE.ConeGeometry(0.2, 0.55, 6), flat('#ff8a3d'), x, 2.2, z - 0.32); f.rotation.x = Math.PI; body.add(f); }); }
+    if (back.kind === 'wings') { [-1, 1].forEach(s => { const w = mk(bx(1.6, 0.95, 0.1), m, s * 0.95, 3.6, z - 0.2); w.rotation.z = s * 0.38; w.rotation.y = -s * 0.35; body.add(w); }); }
+  }
+  const gear = ITEM[look.gear];
+  if (gear) {
+    const m = lam(gear.color);
+    if (gear.kind === 'dumbbell') { const bar = mk(cyl(0.07, 0.07, 1.1, 6), lam('#9aa3ad'), 0, -1.95, 0.1); bar.rotation.x = Math.PI / 2; armR.add(bar); armR.add(mk(bx(0.42, 0.42, 0.22), m, 0, -1.95, 0.6)); armR.add(mk(bx(0.42, 0.42, 0.22), m, 0, -1.95, -0.4)); }
+    if (gear.kind === 'shaker') { armR.add(mk(cyl(0.24, 0.22, 0.7, 10), m, 0, -2.05, 0.25)); armR.add(mk(cyl(0.25, 0.25, 0.15, 10), lam('#26222e'), 0, -1.65, 0.25)); }
+    if (gear.kind === 'trophy') { armR.add(mk(cyl(0.38, 0.16, 0.5, 10), m, 0, -1.7, 0.3)); armR.add(mk(cyl(0.06, 0.06, 0.3, 6), m, 0, -2.05, 0.3)); armR.add(mk(bx(0.4, 0.12, 0.4), lam('#3b3946'), 0, -2.25, 0.3)); }
+  }
+  root.scale.setScalar(0.42 * (sc || 1));
+  return { root, body, legL, legR, armL, armR, head };
+}
+function animateAvatar(av, t, moving, emote) {
+  if (!av) return;
+  const k = 0.25;
+  const set = (o, ax, v) => { o.rotation[ax] += (v - o.rotation[ax]) * k; };
+  let lx = 0, rx = 0, alx = 0, arx = 0, alz = 0, arz = 0, by = 0, bry = 0;
+  if (moving) { const s = Math.sin(t * 11) * 0.75; lx = s; rx = -s; alx = -s; arx = s; }
+  else by = Math.sin(t * 2) * 0.03;
+  if (emote === 'wave') { arz = -2.7 + Math.sin(t * 14) * 0.35; }
+  if (emote === 'flex') { alz = 1.55; arz = -1.55; alx = -0.6; arx = -0.6; by = Math.abs(Math.sin(t * 6)) * 0.1; }
+  if (emote === 'dance') { bry = t * 7; alz = 2.4 + Math.sin(t * 10) * 0.4; arz = -2.4 - Math.sin(t * 10) * 0.4; by = Math.abs(Math.sin(t * 10)) * 0.25; lx = Math.sin(t * 10) * 0.4; rx = -lx; }
+  if (emote === 'cheer') { alz = 2.8; arz = -2.8; by = Math.abs(Math.sin(t * 9)) * 0.4; }
+  set(av.legL, 'x', lx); set(av.legR, 'x', rx); set(av.armL, 'x', alx); set(av.armR, 'x', arx); set(av.armL, 'z', alz); set(av.armR, 'z', arz);
+  av.body.position.y = by;
+  av.body.rotation.y = emote === 'dance' ? bry : av.body.rotation.y * 0.8;
+}
+
+// ---------- entities (players, NPCs) ----------
+const ENTS = new Set();
+const shadowGeo = new THREE.CircleGeometry(0.55, 12), shadowMat = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.25 });
+function makeEntity(kind) {
+  const root = new THREE.Group(); scene.add(root);
+  const sh = new THREE.Mesh(shadowGeo, shadowMat); sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; root.add(sh);
+  const el = document.createElement('div'); el.className = 'tag ' + kind;
+  const bub = document.createElement('div'); bub.className = 'bubble'; bub.hidden = true;
+  const nm = document.createElement('div'); nm.className = 'nm';
+  el.append(bub, nm); $('tags').appendChild(el);
+  const e = { kind, root, el, nm, bub, av: null, pos: new THREE.Vector3(), goal: new THREE.Vector3(), ry: 0, goalRy: 0, y: 0, vy: 0, moving: false, emote: null, emoteUntil: 0, height: 2.4, lookKey: '' };
+  ENTS.add(e); return e;
+}
+function setLook(e, look, build, sc) {
+  const key = JSON.stringify([look, build, sc]); if (e.lookKey === key) return; e.lookKey = key;
+  if (e.av) e.root.remove(e.av.root);
+  e.av = buildAvatar(look, build, sc); e.root.add(e.av.root); e.height = 2.6 * (sc || 1);
+}
+function setTag(e, text, lv, extra) {
+  const key = text + '|' + lv + '|' + extra; if (e.tagKey === key) return; e.tagKey = key;
+  e.tagText = text;
+  e.nm.textContent = '';
+  e.nm.append(document.createTextNode(text));
+  if (lv) { const i = document.createElement('i'); i.textContent = ' LV' + lv; e.nm.append(i); }
+  if (extra) e.nm.append(document.createTextNode(' ' + extra));
+}
+function removeEntity(e) { scene.remove(e.root); e.el.remove(); ENTS.delete(e); }
+function sayBubble(e, text) {
+  e.bub.textContent = text; e.bub.hidden = false; clearTimeout(e.bubT); e.bubT = setTimeout(() => { e.bub.hidden = true; }, 6000);
+}
+
+// ---------- island ----------
+const COLLIDERS = [], ZONES = [], CLICKABLE = [];
+const ISLAND_R = 44;
+function buildWorld() {
+  const water = mk(new THREE.PlaneGeometry(700, 700), lam('#2f6fd8'), 0, -0.7, 0); water.rotation.x = -Math.PI / 2; scene.add(water);
+  scene.add(mk(cyl(48, 51, 2, 40), lam('#e8d39a'), 0, -1, 0));
+  const grass = mk(new THREE.CircleGeometry(46.5, 40), new THREE.MeshLambertMaterial({ map: tex(16, 16, g => { g.fillStyle = '#4fae4a'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#5bbd55'; g.fillRect(0, 0, 8, 8); g.fillRect(8, 8, 8, 8); }, 46) }), 0, 0.01, 0);
+  grass.rotation.x = -Math.PI / 2; scene.add(grass);
+  const plaza = mk(new THREE.CircleGeometry(12, 32), new THREE.MeshLambertMaterial({ map: tex(16, 16, g => { g.fillStyle = '#b9b4c9'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#a49fb6'; g.fillRect(0, 0, 8, 8); g.fillRect(8, 8, 8, 8); g.fillStyle = '#8d88a1'; g.fillRect(0, 7, 16, 1); g.fillRect(7, 0, 1, 16); }, 7) }), 0, 0.03, 0);
+  plaza.rotation.x = -Math.PI / 2; scene.add(plaza);
+  const track = mk(new THREE.RingGeometry(30, 33.5, 72), lam('#c8553a'), 0, 0.04, 0); track.rotation.x = -Math.PI / 2; scene.add(track);
+  [31.1, 32.3].forEach(r => { const l = mk(new THREE.RingGeometry(r, r + 0.12, 72), flat('#f1ead6'), 0, 0.05, 0); l.rotation.x = -Math.PI / 2; scene.add(l); });
+  // fountain
+  scene.add(mk(cyl(3, 3.2, 0.8, 16), lam('#8d88a1'), 0, 0.4, 0));
+  scene.add(mk(cyl(2.5, 2.5, 0.1, 16), lam('#4fc8ff'), 0, 0.82, 0));
+  scene.add(mk(cyl(0.5, 0.7, 2.4, 8), lam('#a49fb6'), 0, 1.2, 0));
+  const orb = mk(new THREE.OctahedronGeometry(0.7), flat('#ffc94a'), 0, 3.1, 0); scene.add(orb); WORLD.orb = orb;
+  COLLIDERS.push({ x: 0, z: 0, r: 3.4 });
+
+  const B = [
+    { id: 'shop', label: 'CATALOG', panel: 'shop', angle: 0, w: 9, d: 6, h: 5, color: '#a374ff', roof: '#5b3aa8', npc: { tag: 'MERCH MO', look: { skin: 3, hair: 'afro', hairColor: 0, shirt: 'jersey', pants: 'joggers', shoes: 'sneak-red', hat: 'cap-red' }, build: 'average' } },
+    { id: 'gym', label: 'GYM', panel: 'quests', angle: 72, w: 9, d: 7, h: 5.5, color: '#ff4d5e', roof: '#7a1f2c', npc: { tag: 'COACH KCAL', look: { skin: 1, hair: 'short', hairColor: 0, shirt: 'tank', pants: 'shorts-black', shoes: 'sneak-neon', hat: 'headband', gear: 'dumbbell' }, build: 'athletic' } },
+    { id: 'diner', label: 'DINER', panel: 'log', angle: 144, w: 8, d: 6, h: 4.5, color: '#ffc94a', roof: '#a0611c', npc: { tag: 'CHEF MACRO', look: { skin: 0, hair: 'short', hairColor: 3, shirt: 'tee-white', pants: 'jeans-blue', shoes: 'sneak-white', hat: 'chef', face: 'stache' }, build: 'stocky' } },
+    { id: 'scale', label: 'WEIGH-IN', panel: 'log', focus: 'wIn', angle: 216, w: 7, d: 5, h: 4, color: '#4fc8ff', roof: '#1e5f8a', npc: { tag: 'SCALE KEEPER', look: { skin: 4, hair: 'bun', hairColor: 4, shirt: 'hoodie-gray', pants: 'joggers', shoes: 'sneak-white', face: 'nerd' }, build: 'slim' } },
+    { id: 'ranks', label: 'RANKS', panel: 'ranks', angle: 288, w: 5, d: 5, h: 11, color: '#63e06b', roof: '#2c7a33', podium: true }
+  ];
+  B.forEach(b => {
+    const a = b.angle * Math.PI / 180, R = 21;
+    const g = new THREE.Group(); g.position.set(Math.sin(a) * R, 0, -Math.cos(a) * R); g.lookAt(0, 0, 0); scene.add(g);
+    const walls = mk(bx(b.w, b.h, b.d), lam(b.color), 0, b.h / 2, 0); walls.userData.zone = b.id; g.add(walls); CLICKABLE.push(walls);
+    g.add(mk(bx(b.w + 0.8, 0.7, b.d + 0.8), lam(b.roof), 0, b.h + 0.35, 0));
+    g.add(mk(bx(1.8, 2.8, 0.12), lam('#2a1d3f'), 0, 1.4, b.d / 2 + 0.06));
+    [-1, 1].forEach(s => { if (b.w > 6) g.add(mk(bx(1.4, 1.2, 0.12), lam('#cfe8ff'), s * (b.w / 2 - 1.6), b.h * 0.55, b.d / 2 + 0.06)); });
+    const sign = mk(new THREE.PlaneGeometry(Math.min(b.w - 0.6, 6.5), 1.3), new THREE.MeshBasicMaterial({ map: tex(256, 52, (g2, w, h) => {
+      g2.fillStyle = '#07060d'; g2.fillRect(0, 0, w, h); g2.fillStyle = b.color; g2.fillRect(4, 4, w - 8, h - 8); g2.fillStyle = '#07060d'; g2.fillRect(8, 8, w - 16, h - 16);
+      g2.fillStyle = '#f1ead6'; g2.font = '18px "Press Start 2P", monospace'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(b.label, w / 2, h / 2 + 2);
+    }) }), 0, Math.min(b.h - 0.9, 4.1), b.d / 2 + 0.08);
+    g.add(sign);
+    COLLIDERS.push({ x: g.position.x, z: g.position.z, r: Math.max(b.w, b.d) / 2 + 0.4 });
+    const zr = R - b.d / 2 - 2.2;
+    const zone = { id: b.id, label: b.label, panel: b.panel, focus: b.focus, x: Math.sin(a) * zr, z: -Math.cos(a) * zr };
+    if (b.podium) {
+      const pr = R - b.d / 2 - 3.2, px = Math.sin(a) * pr, pz = -Math.cos(a) * pr;
+      const pg = new THREE.Group(); pg.position.set(px, 0, pz); pg.lookAt(0, 0, 0); scene.add(pg);
+      [[0, 1.5, '#ffc94a'], [-1.7, 1.0, '#cfd6e0'], [1.7, 0.7, '#d9895b']].forEach(([x, h, c]) => pg.add(mk(bx(1.6, h, 1.6), lam(c), x, h / 2, 0)));
+      WORLD.podium = pg; COLLIDERS.push({ x: px, z: pz, r: 2.8 });
+      zone.x = Math.sin(a) * (pr - 2.6); zone.z = -Math.cos(a) * (pr - 2.6);
+    }
+    ZONES.push(zone);
+    if (b.npc) {
+      const n = makeEntity('npc'); setLook(n, b.npc.look, b.npc.build, 1); setTag(n, b.npc.tag);
+      const side = new THREE.Vector3(1, 0, 0).applyQuaternion(g.quaternion);
+      n.pos.set(zone.x + side.x * 2.6, 0, zone.z + side.z * 2.6); n.ry = Math.atan2(-n.pos.x, -n.pos.z); n.npcZone = zone; NPCS.push(n);
+    }
+  });
+  // trees
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 46; i++) {
+    const a = rnd() * Math.PI * 2, r = 35.5 + rnd() * 8.5, x = Math.sin(a) * r, z = Math.cos(a) * r, s = 0.8 + rnd() * 0.6;
+    scene.add(mk(bx(0.6 * s, 2 * s, 0.6 * s), lam('#7a4a28'), x, s, z));
+    scene.add(mk(bx(2.4 * s, 1.6 * s, 2.4 * s), lam(rnd() > 0.5 ? '#2f8a3a' : '#3aa148'), x, 2.6 * s, z));
+    scene.add(mk(bx(1.4 * s, 1 * s, 1.4 * s), lam('#46b955'), x, 3.8 * s, z));
+    COLLIDERS.push({ x, z, r: 1.1 * s });
+  }
+  // joggers on the track
+  [['BOT JOGGER', 'tank', 'shorts-red', 'cap-navy', 0, 1.0], ['BOT JOGGER', 'tee-blue', 'shorts-black', null, 2.1, 1.2], ['BOT WALKER', 'hoodie-pink', 'joggers', 'beanie', 4.2, 0.55]].forEach(([tag, shirt, pants, hat, a0, sp], i) => {
+    const b = makeEntity('bot'); setLook(b, { skin: (i * 2) % 6, hair: HAIRS[(i + 1) % 6], hairColor: i, shirt, pants, hat, shoes: 'sneak-white' }, BUILDS[i % 5].id, 1); setTag(b, tag);
+    b.bot = { a: a0, sp, r: 31.7 }; BOTS.push(b);
+  });
+}
+const WORLD = {}, NPCS = [], BOTS = [];
+
+// podium statues for the top three
+let podiumKey = '', podiumEnts = [];
+function updatePodium() {
+  if (!WORLD.podium) return;
+  const list = boardList('all', 'pct').slice(0, 3);
+  const key = JSON.stringify(list.map(p => [p.id, p.tag, p.look, p.build, p.pct]));
+  if (key === podiumKey) return; podiumKey = key;
+  podiumEnts.forEach(removeEntity); podiumEnts = [];
+  const spots = [[0, 1.5], [-1.7, 1.0], [1.7, 0.7]];
+  list.forEach((p, i) => {
+    const e = makeEntity('npc'); setLook(e, sanitizeLook(p.look), p.build, 1); setTag(e, '#' + (i + 1) + ' ' + String(p.tag || 'Player').slice(0, 16));
+    const v = new THREE.Vector3(spots[i][0], spots[i][1], 0); WORLD.podium.localToWorld(v);
+    e.pos.copy(v); e.statueY = spots[i][1]; e.ry = Math.atan2(-v.x, -v.z); e.emote = 'cheer'; e.emoteUntil = Infinity; podiumEnts.push(e);
+  });
+}
+
+// ---------- local player + camera ----------
+let player = null;
+const cam = { yaw: 0, pitch: 0.42, dist: 13 };
+const keys = new Set();
+const tapMarker = mk(new THREE.RingGeometry(0.35, 0.55, 12), flat('#ffc94a'), 0, 0.06, 0); tapMarker.rotation.x = -Math.PI / 2; tapMarker.visible = false; scene.add(tapMarker);
+function spawn() {
+  if (!player) { player = makeEntity('me'); player.pos.set(0, 0, 6); }
+  refreshPlayer();
+  player.root.visible = true; player.el.hidden = false;
+  view.mode = 'play'; lastPres = '';
+  $('hud').hidden = false; $('hudBottom').hidden = false;
+  sendPresence(true); renderHUD();
+}
+function refreshPlayer() {
+  if (!player || !ME) return;
+  const look = view.panel === 'shop' && view.tryOn ? Object.assign({}, ME.look, { [ITEM[view.tryOn].slot]: view.tryOn }) : ME.look;
+  setLook(player, look, ME.build, ME.scale || 1);
+  const c = S.profile ? calc(S.profile) : null;
+  setTag(player, ME.tag, c ? c.level : 1);
+}
+function collide(p) {
+  for (const c of COLLIDERS) { const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d < c.r && d > 0.0001) { p.x = c.x + dx / d * c.r; p.z = c.z + dz / d * c.r; } }
+  const d = Math.hypot(p.x, p.z); if (d > ISLAND_R) { p.x *= ISLAND_R / d; p.z *= ISLAND_R / d; }
+}
+function updatePlayer(dt) {
+  if (!player) return;
+  let f = 0, s = 0;
+  if (!isTyping()) {
+    if (keys.has('w') || keys.has('arrowup')) f += 1; if (keys.has('s') || keys.has('arrowdown')) f -= 1;
+    if (keys.has('d') || keys.has('arrowright')) s += 1; if (keys.has('a') || keys.has('arrowleft')) s -= 1;
+    if (keys.has('q')) cam.yaw += dt * 2;
+  }
+  const dir = new THREE.Vector3();
+  if (f || s) { player.target = null; tapMarker.visible = false; dir.set(-Math.sin(cam.yaw) * f + Math.cos(cam.yaw) * s, 0, -Math.cos(cam.yaw) * f - Math.sin(cam.yaw) * s); }
+  else if (player.target) { dir.subVectors(player.target, player.pos); dir.y = 0; if (dir.length() < 0.3) { player.target = null; tapMarker.visible = false; dir.set(0, 0, 0); } }
+  const moving = dir.lengthSq() > 0;
+  if (moving) {
+    dir.normalize(); const speed = keys.has('shift') ? 11 : 7;
+    player.pos.addScaledVector(dir, speed * dt); collide(player.pos);
+    const want = Math.atan2(dir.x, dir.z); let dA = want - player.ry; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); player.ry += dA * Math.min(1, dt * 12);
+    if (player.emote && player.emoteUntil !== Infinity) player.emote = null;
+  }
+  player.moving = moving;
+  if (player.y > 0 || player.vy > 0) { player.vy -= 28 * dt; player.y = Math.max(0, player.y + player.vy * dt); if (player.y === 0) player.vy = 0; }
+  sendPresence(false);
+}
+function updateCamera(dt) {
+  let target;
+  if (view.mode === 'play' && player) target = new THREE.Vector3(player.pos.x, 1.4 + player.y * 0.5, player.pos.z);
+  else { cam.yaw += dt * 0.07; target = new THREE.Vector3(0, 2, 0); }
+  const d = view.mode === 'play' ? cam.dist : 42, p = view.mode === 'play' ? cam.pitch : 0.5;
+  const want = new THREE.Vector3(target.x + Math.sin(cam.yaw) * Math.cos(p) * d, target.y + Math.sin(p) * d, target.z + Math.cos(cam.yaw) * Math.cos(p) * d);
+  camera.position.lerp(want, view.mode === 'play' ? Math.min(1, dt * 8) : 1);
+  camera.lookAt(target);
+}
+const projV = new THREE.Vector3();
+function placeTags() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  ENTS.forEach(e => {
+    projV.set(e.pos.x, e.pos.y + (e.statueY || 0) + e.y + e.height + 0.1, e.pos.z).project(camera);
+    const dist = camera.position.distanceTo(e.pos);
+    if (projV.z > 1 || dist > 60 || e.hidden) { e.el.style.display = 'none'; return; }
+    e.el.style.display = '';
+    e.el.style.transform = 'translate(' + ((projV.x + 1) / 2 * w).toFixed(1) + 'px,' + ((1 - projV.y) / 2 * h).toFixed(1) + 'px) translate(-50%,-100%)';
+    e.el.style.opacity = dist > 40 ? 0.5 : 1;
+  });
+}
+
+// ---------- loop ----------
+const clock = new THREE.Clock(); let T = 0;
+function resize() { const w = cv.clientWidth || window.innerWidth, h = cv.clientHeight || window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+window.addEventListener('resize', resize);
+function tick() {
+  const dt = Math.min(0.05, clock.getDelta()); T += dt;
+  if (view.mode === 'play') updatePlayer(dt);
+  BOTS.forEach(b => { b.bot.a += b.bot.sp * 7 * dt / b.bot.r; b.pos.set(Math.sin(b.bot.a) * b.bot.r, 0, Math.cos(b.bot.a) * b.bot.r); b.ry = b.bot.a + Math.PI / 2; b.moving = true; });
+  NPCS.forEach(n => { if (player && view.mode === 'play' && n.pos.distanceTo(player.pos) < 8) { n.goalRy = Math.atan2(player.pos.x - n.pos.x, player.pos.z - n.pos.z); let dA = n.goalRy - n.ry; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); n.ry += dA * Math.min(1, dt * 5); } });
+  REMOTES.forEach(r => { r.pos.lerp(r.goal, 1 - Math.exp(-10 * dt)); let dA = r.goalRy - r.ry; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); r.ry += dA * Math.min(1, dt * 10); });
+  ENTS.forEach(e => {
+    if (e.emote && T * 1000 > e.emoteUntil && e.emoteUntil !== Infinity) e.emote = null;
+    e.root.position.set(e.pos.x, (e.statueY || 0) + e.y, e.pos.z); e.root.rotation.y = e.ry;
+    animateAvatar(e.av, T + (e.phase || 0), e.moving, e.emote);
+  });
+  if (WORLD.orb) { WORLD.orb.rotation.y = T * 1.5; WORLD.orb.position.y = 3.1 + Math.sin(T * 2) * 0.25; }
+  if (view.tab === 'home' || view.tab === 'island') { updateCamera(dt); checkZone(); renderer.render(scene, camera); if (view.tab === 'island') placeTags(); }
+  renderPreview(T);
+  requestAnimationFrame(tick);
+}
+
+// ---------- input ----------
+let drag = null;
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} if (isTyping()) document.activeElement.blur(); });
+cv.addEventListener('pointermove', e => {
+  if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.moved > 6) { cam.yaw -= dx * 0.008; cam.pitch = clamp(cam.pitch + dy * 0.005, 0.1, 1.25); }
+});
+cv.addEventListener('pointerup', e => { if (drag && drag.moved <= 6) tapAt(e); drag = null; });
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.dist = clamp(cam.dist + e.deltaY * 0.012, 5, 32); }, { passive: false });
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function tapAt(e) {
+  if (view.mode !== 'play' || !player) return;
+  const r = cv.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(CLICKABLE)[0];
+  if (hit) { const z = ZONES.find(z => z.id === hit.object.userData.zone); if (z) { player.target = new THREE.Vector3(z.x, 0, z.z); tapMarker.position.set(z.x, 0.06, z.z); tapMarker.visible = true; return; } }
+  const p = new THREE.Vector3(); if (ray.ray.intersectPlane(ground, p)) { collide(p); player.target = p; tapMarker.position.set(p.x, 0.06, p.z); tapMarker.visible = true; }
+}
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'escape') { if (isTyping()) document.activeElement.blur(); else if (view.panel) closePanel(); return; }
+  if (isTyping() || view.mode !== 'play' || !$('create').hidden) return;
+  if (k === 'enter' || k === '/') { e.preventDefault(); $('chatIn').focus(); return; }
+  if (k === 'e' && view.zone) { openZone(view.zone); return; }
+  if (k === ' ') { e.preventDefault(); if (player && player.y === 0) { player.vy = 10; } return; }
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'q'].includes(k)) { keys.add(k); if (k.startsWith('arrow')) e.preventDefault(); }
+});
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+function checkZone() {
+  if (view.mode !== 'play' || !player) { $('prompt').hidden = true; return; }
+  let z = null; for (const zz of ZONES) if (Math.hypot(player.pos.x - zz.x, player.pos.z - zz.z) < 3.4) z = zz;
+  if (z !== view.zone) {
+    view.zone = z; const p = $('prompt');
+    if (z) { p.textContent = (matchMedia('(pointer: coarse)').matches ? 'Tap: ' : '[E] ') + ({ shop: 'Browse the catalog', gym: 'Take on quests', diner: 'Log your food', scale: 'Step on the scale', ranks: 'See the leaderboard' }[z.id]); p.hidden = false; }
+    else p.hidden = true;
+  }
+}
+$('prompt').addEventListener('click', () => { if (view.zone) openZone(view.zone); });
+function openZone(z) { openPanel(z.panel); if (z.focus) setTimeout(() => { $(z.focus).scrollIntoView({ block: 'center' }); $(z.focus).focus(); }, 50); }
+
+// ================= multiplayer =================
+let room = null;
+const REMOTES = new Map();
+let lastSent = 0, lastPres = '';
+function sendPresence(force) {
+  if (!room || !player || !ME) return;
+  const now = performance.now(); if (!force && now - lastSent < 100) return;
+  const c = S.profile ? calc(S.profile) : null;
+  const pres = { x: r1(player.pos.x), z: r1(player.pos.z), ry: Math.round(player.ry * 100) / 100, mv: player.moving ? 1 : 0, y: r1(player.y), tag: ME.tag, lv: c ? c.level : 1, look: ME.look, build: ME.build, s: ME.scale || 1 };
+  const key = JSON.stringify(pres); if (key === lastPres) return;
+  lastPres = key; lastSent = now; room.presence(pres).catch(() => {});
+}
+function upsertRemote(p) {
+  if (p.isMe) return;
+  const pr = p.presence || {};
+  if (typeof pr.x !== 'number' || typeof pr.z !== 'number') { removeRemote(p.peer); return; }
+  let e = REMOTES.get(p.peer);
+  if (!e) { e = makeEntity('peer'); e.pos.set(pr.x, 0, pr.z); e.phase = Math.random() * 5; REMOTES.set(p.peer, e); }
+  setLook(e, sanitizeLook(pr.look), BUILDS.some(b => b.id === pr.build) ? pr.build : 'average', clamp(+pr.s || 1, 0.85, 1.15));
+  e.goal.set(clamp(+pr.x, -50, 50), 0, clamp(+pr.z, -50, 50)); e.goalRy = +pr.ry || 0; e.moving = !!pr.mv; e.y = clamp(+pr.y || 0, 0, 5);
+  setTag(e, String(pr.tag || 'Player').slice(0, 16), clamp(Math.round(+pr.lv || 1), 1, 999), p.guest ? '(guest)' : '');
+}
+function removeRemote(peer) { const e = REMOTES.get(peer); if (e) { removeEntity(e); REMOTES.delete(peer); } }
+function updateOnline() {
+  const n = REMOTES.size + (view.mode === 'play' ? 1 : 0);
+  $('online').textContent = room ? (n <= 1 ? 'ONLY YOU HERE' : n + ' ON THE ISLAND') : 'SOLO';
+  if (view.tab === 'home') renderHome();
+}
+async function initRoom() {
+  try { room = window.claude && window.claude.use ? await window.claude.use('room') : null; } catch (e) { room = null; }
+  if (!room) { updateOnline(); return; }
+  room.onPeers(ch => { ch.joined.forEach(upsertRemote); ch.updated.forEach(upsertRemote); ch.left.forEach(p => removeRemote(p.peer)); updateOnline(); }, () => { REMOTES.forEach((e, k) => removeRemote(k)); room = null; updateOnline(); });
+  room.on('chat', m => {
+    const text = String((m.data && m.data.t) || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 140).trim(); if (!text) return;
+    const ent = m.isMe ? (m.sameTab ? player : null) : REMOTES.get(m.peer);
+    addChat(ent ? ent.tagText : 'Someone', text, m.isMe && m.sameTab);
+    if (ent) sayBubble(ent, text);
+    if (!m.isMe) beep(SFX.chat);
+  }, () => {});
+  room.on('emote', m => {
+    if (m.isMe) return; const e = REMOTES.get(m.peer); const em = m.data && m.data.e;
+    if (e && ['wave', 'flex', 'dance', 'cheer'].includes(em)) { e.emote = em; e.emoteUntil = T * 1000 + 3000; }
+  }, () => {});
+  sendPresence(true);
+}
+function addChat(name, text, mine, sys) {
+  const log = $('chatlog'), d = document.createElement('div');
+  if (sys) { d.className = 'sys'; d.textContent = text; }
+  else { const b = document.createElement('b'); b.textContent = name + ': '; if (mine) b.style.color = 'var(--gold)'; d.append(b, document.createTextNode(text)); }
+  log.append(d); while (log.children.length > 6) log.firstChild.remove();
+  setTimeout(() => { d.style.transition = 'opacity 1s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 1000); }, 14000);
+}
+let lastChat = 0;
+$('chatForm').addEventListener('submit', e => {
+  e.preventDefault(); const inp = $('chatIn'); const text = inp.value.trim(); if (!text) { inp.blur(); return; }
+  if (Date.now() - lastChat < 1200) return; lastChat = Date.now();
+  inp.value = ''; inp.blur();
+  if (room && room.connected()) room.emit('chat', { t: text.slice(0, 140) }).catch(err => { if (err && err.code === 'not_permitted') addChat('', 'Your access to this page is view-only, so chat is off.', false, true); });
+  else { addChat(ME ? ME.tag : 'You', text, true); if (player) sayBubble(player, text); if (!room) addChat('', 'Nobody else can hear you in solo mode.', false, true); }
+});
+function doEmote(em) {
+  if (!player) return; player.emote = em; player.emoteUntil = T * 1000 + 3000;
+  if (room && room.connected()) room.emit('emote', { e: em }).catch(() => {});
+}
+
+// ================= HUD =================
+function renderHUD() {
+  if (!S.profile || !ME) return;
+  const c = calc(S.profile);
+  $('navCoins').hidden = false; $('navCoinsN').textContent = fmt(ME.coins);
+  $('meTag').textContent = ME.tag; $('meCoins').textContent = fmt(ME.coins); $('meLv').textContent = 'LV ' + c.level + ' · ' + (c.dir < 0 ? 'cutting' : 'bulking');
+  const card = $('burnCard'); card.classList.toggle('gain', c.dir > 0);
+  $('burnLbl').textContent = c.hp <= 0 ? 'GOAL REACHED' : (c.dir < 0 ? 'CALORIES LEFT TO BURN' : 'CALORIES LEFT TO BUILD');
+  $('burnNum').textContent = fmt(c.hp);
+  const max = Math.max(c.totalHP, c.weightHP, 1), hf = Math.min(1, c.hp / max), pf = Math.min(c.pending, c.hp) / max;
+  $('hpFill').style.width = (hf * 100) + '%'; $('hpPend').style.left = ((hf - pf) * 100) + '%'; $('hpPend').style.width = (pf * 100) + '%';
+  const td = dayOf(c.today), left = c.budget + td.burned - eatenOf(td);
+  let sub = '<b>' + (c.hp / KCAL).toFixed(1) + '</b> lb to go · <b>' + Math.floor(c.pct) + '%</b>';
+  if (c.daysLeft > 0) sub += ' · <b>' + c.daysLeft + '</b> days';
+  sub += '<br>Today: ' + (c.dir < 0 ? (left >= 0 ? '<b>' + fmt(left) + '</b> cal left' : '<b style="color:var(--hp)">' + fmt(-left) + '</b> over') : (left > 0 ? '<b>' + fmt(left) + '</b> more to eat' : '<b style="color:var(--good)">target hit</b>'));
+  if (c.pending > 0) sub += ' · <span style="color:var(--gold)">−' + fmt(c.pending) + ' pending</span>';
+  $('burnSub').innerHTML = sub;
+  $('soundBtn').textContent = 'Sound: ' + (view.sound ? 'on' : 'off');
+}
+function floatAt(el, text) {
+  const r = el.getBoundingClientRect(), a = $('app').getBoundingClientRect(), f = document.createElement('div');
+  f.className = 'float'; f.textContent = text; f.style.left = (r.left - a.left + r.width / 2 - 30) + 'px'; f.style.top = (r.top - a.top + 10) + 'px';
+  $('app').appendChild(f); setTimeout(() => f.remove(), 1500);
+}
+let toastT = null;
+function toast(a, b) { $('toastA').textContent = a; $('toastB').textContent = b; $('toast').hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').hidden = true; }, 2600); }
+
+// after any change to logs or weigh-ins: refresh HUD, public stats, presence
+let lastLv = null, lastHp = null;
+function afterChange(fx) {
+  if (!S.profile || !ME) return;
+  const c = calc(S.profile);
+  if (fx && lastHp != null && c.hp < lastHp) { floatAt($('burnNum'), '−' + fmt(lastHp - c.hp)); beep(SFX.hit); }
+  if (fx && lastLv != null && c.level > lastLv) { setTimeout(() => { toast('LEVEL UP!', 'LV ' + c.level); beep(SFX.lvl); if (player) { player.emote = 'cheer'; player.emoteUntil = T * 1000 + 2500; } }, 400); }
+  lastHp = c.hp; lastLv = c.level;
+  const stats = { goal: c.dir < 0 ? 'lose' : 'gain', moved: r1(c.movedScale), pct: r1(clamp(c.pctScale, -100, 100)), streak: c.streak, best: c.best, lv: c.level };
+  if (Object.keys(stats).some(k => ME[k] !== stats[k])) { Object.assign(ME, stats, { updatedAt: Date.now() }); store.saveMe(); }
+  renderHUD(); refreshPlayer(); sendPresence(true);
+  renderActive();
+}
+
+// ================= panels =================
+const PANEL_TITLES = { log: 'FOOD LOG', quests: 'FITNESS QUESTS', shop: 'CATALOG', closet: 'AVATAR', ranks: 'LEADERBOARD' };
+function openPanel(name) {
+  if (!ME) return;
+  view.panel = name; $('panel').hidden = false; $('panelTitle').textContent = PANEL_TITLES[name];
+  const body = $('panel').querySelector('.panel-b');
+  ['log', 'quests', 'shop', 'closet', 'ranks'].forEach(n => { const sec = $('p-' + n); if (n === name) body.appendChild(sec); sec.hidden = n !== name; });
+  if (name === 'shop') mountPreview($('shopPrev')); else if (name === 'closet') mountPreview($('closetPrev'));
+  if (name !== 'shop' && view.tryOn) { view.tryOn = null; refreshPlayer(); }
+  renderPanel();
+  $('panel').querySelector('.panel-b').scrollTop = 0;
+}
+function closePanel() { view.panel = null; $('panel').hidden = true; if (view.tryOn) { view.tryOn = null; refreshPlayer(); } unmountPreview(); }
+$('panelClose').addEventListener('click', closePanel);
+function renderPanel() { ({ log: renderLog, quests: renderQuests, shop: renderShop, closet: renderCloset, ranks: renderRanks })[view.panel](); }
+
+// ---------- LOG ----------
+function ensureDay(k) { if (!S.days[k]) S.days[k] = newDay(); return S.days[k]; }
+function renderLog() {
+  const c = calc(S.profile), k = view.date, d = dayOf(k), isToday = k === c.today;
+  $('dLabel').textContent = (isToday ? 'TODAY · ' : '') + pretty(k).toUpperCase();
+  $('dNext').disabled = k >= c.today;
+  // 14-day strip
+  let s = ''; for (let i = 13; i >= 0; i--) { const dk = addDays(c.today, -i), h = c.hit(dk); s += '<button type="button" data-day="' + dk + '" class="' + (dk === c.today && S.days[dk] && S.days[dk].foods.length ? 'live' : h === true ? 'hit' : h === false ? 'miss' : '') + (dk === k ? ' on' : '') + '" aria-label="' + esc(pretty(dk)) + '">' + parseKey(dk).getDate() + '</button>'; }
+  $('strip').innerHTML = s;
+  const tdee = c.tdeeOn(k), budget = c.budgetOn(k), eaten = eatenOf(d), target = budget + d.burned;
+  if (document.activeElement !== $('dMaint')) $('dMaint').value = d.tdee || ''; $('dMaint').placeholder = String(c.baseTdee);
+  if (document.activeElement !== $('dBurn')) $('dBurn').value = d.burned || '';
+  const L = $('tLeft'), left = target - eaten;
+  if (c.dir < 0) { L.className = 'left' + (left < 0 ? ' over' : ''); L.innerHTML = (left < 0 ? '−' : '') + fmt(Math.abs(left)) + '<small>' + (left < 0 ? 'CAL OVER' : 'CAL LEFT') + '</small>'; }
+  else { L.className = 'left'; L.innerHTML = (left > 0 ? fmt(left) : 'HIT') + '<small>' + (left > 0 ? 'CAL TO EAT' : 'TARGET MET') + '</small>'; }
+  $('tEq').innerHTML = 'Maintenance <b>' + fmt(tdee) + '</b> ' + (c.dir < 0 ? '− deficit' : '+ surplus') + ' <b>' + fmt(Math.abs(budget - tdee)) + '</b> + burned <b>' + fmt(d.burned) + '</b> = <b>' + fmt(target) + '</b> · eaten <b>' + fmt(eaten) + '</b>';
+  const bar = $('tBar'); bar.classList.toggle('over', c.dir < 0 && left < 0); bar.firstElementChild.style.width = Math.min(100, eaten / Math.max(1, target) * 100) + '%';
+  const net = c.prog(k);
+  $('dGoal').innerHTML = (c.dir < 0 ? 'Goal: eat between ' + fmt(Math.min(c.floor, target)) + ' and ' + fmt(target) + '. ' : 'Goal: eat at least ' + fmt(target) + '. ') + (d.foods.length ? 'Net so far: <span style="color:' + (net >= 0 ? 'var(--good)' : 'var(--hp)') + '">' + (net >= 0 ? '' : '−') + fmt(Math.abs(net)) + ' cal ' + (net >= 0 ? 'toward' : 'away from') + ' your goal</span>.' : '');
+  document.querySelectorAll('[data-meal]').forEach(t => t.setAttribute('aria-pressed', String(t.dataset.meal === view.meal)));
+  const seen = new Map();
+  Object.keys(S.days).sort().reverse().forEach(dk => S.days[dk].foods.slice().reverse().forEach(f => { if (!seen.has(f.name) && seen.size < 8) seen.set(f.name, f.kcal); }));
+  $('quick').innerHTML = seen.size ? '<span class="hint">Recent:</span>' + [...seen].map(([n, kc]) => '<button type="button" data-quick="' + esc(n) + '" data-kcal="' + kc + '">+ ' + esc(n) + ' <span style="color:var(--mana)">' + fmt(kc) + '</span></button>').join('') : '';
+  $('entries').innerHTML = MEALS.map(m => {
+    const items = d.foods.filter(f => f.meal === m), tot = items.reduce((a, f) => a + f.kcal, 0);
+    return '<div><div class="meal-h"><span class="lbl">' + m + '</span><span class="lbl" style="color:var(--text)">' + fmt(tot) + '</span></div>' +
+      (items.length ? items.map(f => '<div class="entry"><span class="nm">' + esc(f.name) + (f.qty && f.qty !== 1 ? ' <span style="color:var(--dim)">×' + f.qty + '</span>' : '') + '</span><span><span class="kc">' + fmt(f.kcal) + '</span><button class="x" type="button" data-del="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '">X</button></span></div>').join('') : '<div class="empty">Nothing logged.</div>') + '</div>';
+  }).join('');
+  if (!$('wDate').value) $('wDate').value = c.today; $('wDate').max = c.today; $('wIn').placeholder = String(c.cur);
+  const rows = S.weighIns.slice().reverse().slice(0, 6);
+  $('wList').innerHTML = rows.map((w, i) => { const pv = S.weighIns[S.weighIns.length - 2 - i]; const dl = pv ? r1(w.w - pv.w) : null; const good = dl != null && dl * c.dir >= 0;
+    return '<div class="entry"><span class="nm">' + pretty(w.date) + '</span><span><span class="kc" style="color:var(--text)">' + w.w + ' lb</span> ' + (dl != null ? '<span style="color:' + (good ? 'var(--good)' : 'var(--hp)') + '">' + (dl > 0 ? '+' : '') + dl + '</span>' : '<span class="hint">start</span>') + (S.weighIns.length > 1 ? '<button class="x" type="button" data-wdel="' + w.date + '" aria-label="Remove weigh-in">X</button>' : '') + '</span></div>'; }).join('');
+}
+function addFood(name, kcal, qty) {
+  name = (name || '').trim().slice(0, 80); kcal = Math.round(+kcal);
+  if (!name || !isFinite(kcal) || kcal < 0 || kcal > 10000) { $('fHint').textContent = 'Enter a food name and its calories.'; return false; }
+  ensureDay(view.date).foods.push({ id: uid(), meal: view.meal, name, kcal, qty: qty || 1 });
+  store.saveDay(view.date); beep(SFX.add); afterChange(true); return true;
+}
+function matches(q) {
+  q = q.trim().toLowerCase(); if (!q) return [];
+  const hist = new Map(); Object.values(S.days).forEach(d => d.foods.forEach(f => { if (!hist.has(f.name)) hist.set(f.name, Math.round(f.kcal / (f.qty || 1))); }));
+  const out = []; hist.forEach((kc, n) => { if (n.toLowerCase().includes(q)) out.push({ name: n, serving: 'your entry', kcal: kc }); });
+  FOODS.forEach(([n, s, kc]) => { if (n.toLowerCase().includes(q) && !hist.has(n)) out.push({ name: n, serving: s, kcal: kc }); });
+  return out.slice(0, 10);
+}
+let suggItems = [], suggOn = -1;
+function showSugg() {
+  suggItems = matches($('fName').value); suggOn = -1; const box = $('sugg');
+  if (!suggItems.length) { box.hidden = true; return; }
+  box.innerHTML = suggItems.map((f, i) => '<button type="button" data-pick="' + i + '"><span>' + esc(f.name) + '</span><small>' + esc(f.serving) + ' · ' + fmt(f.kcal) + '</small></button>').join(''); box.hidden = false;
+}
+function pick(i) {
+  const f = suggItems[i]; if (!f) return; view.pick = f; $('fName').value = f.name; $('sugg').hidden = true;
+  $('fKcal').value = Math.round(f.kcal * (parseFloat($('fQty').value) || 1)); $('fHint').textContent = '1 serving = ' + f.serving + ' = ' + fmt(f.kcal) + ' cal'; $('fQty').focus();
+}
+function doAdd() {
+  const q = parseFloat($('fQty').value) || 1; let kc = $('fKcal').value; if (kc === '' && view.pick) kc = view.pick.kcal * q;
+  if (addFood($('fName').value, kc, q)) { $('fName').value = ''; $('fKcal').value = ''; $('fQty').value = '1'; view.pick = null; $('fHint').textContent = 'Added.'; $('sugg').hidden = true; }
+}
+$('fName').addEventListener('input', () => { view.pick = null; showSugg(); });
+$('fName').addEventListener('focus', showSugg);
+$('fName').addEventListener('keydown', e => {
+  const box = $('sugg');
+  if (!box.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); suggOn = (suggOn + (e.key === 'ArrowDown' ? 1 : -1) + suggItems.length) % suggItems.length; [...box.children].forEach((b, i) => b.classList.toggle('on', i === suggOn)); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (!box.hidden && suggOn >= 0) pick(suggOn); else if (!box.hidden && suggItems.length && !$('fKcal').value) pick(0); else doAdd(); }
+});
+$('fQty').addEventListener('input', () => { if (view.pick) { const q = parseFloat($('fQty').value); if (q > 0) $('fKcal').value = Math.round(view.pick.kcal * q); } });
+$('fAdd').addEventListener('click', doAdd);
+[$('fQty'), $('fKcal')].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } }));
+function saveDayNumbers() {
+  const d = ensureDay(view.date), m = Math.round(+$('dMaint').value), b = Math.round(+$('dBurn').value);
+  d.tdee = m >= 800 && m <= 8000 ? m : null; d.burned = b > 0 && b <= 6000 ? b : 0;
+  store.saveDay(view.date); afterChange(true);
+}
+['dMaint', 'dBurn'].forEach(id => { $(id).addEventListener('change', saveDayNumbers); $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); });
+function doWeigh() {
+  const w = Math.round(parseFloat($('wIn').value) * 10) / 10, date = $('wDate').value || todayKey();
+  if (!(w >= 70 && w <= 700) || date > todayKey()) { $('wIn').focus(); return; }
+  S.weighIns = S.weighIns.filter(x => x.date !== date).concat({ date, w }).sort((a, b) => a.date < b.date ? -1 : 1);
+  store.savePrivate(); $('wIn').value = ''; beep(SFX.add); afterChange(true);
+}
+$('wAdd').addEventListener('click', doWeigh);
+$('wIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doWeigh(); } });
+$('dPrev').addEventListener('click', () => { view.date = addDays(view.date, -1); renderLog(); });
+$('dNext').addEventListener('click', () => { if (view.date < todayKey()) { view.date = addDays(view.date, 1); renderLog(); } });
+
+// oracle (Claude estimates a described meal)
+let oracleItems = [], sample = null;
+$('oAsk').addEventListener('click', async () => {
+  const text = $('oText').value.trim(); if (!text || !sample) return;
+  $('oAsk').disabled = true; $('oStatus').textContent = 'Consulting the oracle…'; $('oOut').innerHTML = '';
+  try {
+    const res = await sample.json('Estimate the calories in this meal description. Split it into its separate foods. Use typical US portion sizes when the amount is not given. Reply with JSON only, in this exact shape: {"items":[{"name":"short food name with amount","kcal":number}]}\n\nMeal: ' + text, { modelTier: 'quick' });
+    oracleItems = (res && Array.isArray(res.items) ? res.items : []).filter(i => i && i.name && isFinite(+i.kcal)).map(i => ({ name: String(i.name).slice(0, 80), kcal: clamp(Math.round(+i.kcal), 0, 5000) }));
+    if (!oracleItems.length) $('oStatus').textContent = 'No answer. Try describing it differently.';
+    else { $('oStatus').textContent = 'About ' + fmt(oracleItems.reduce((a, i) => a + i.kcal, 0)) + ' cal total.'; $('oOut').innerHTML = oracleItems.map((it, i) => '<div class="it"><span>' + esc(it.name) + ' <span style="color:var(--mana)">' + fmt(it.kcal) + '</span></span><button class="btn sm" type="button" data-oadd="' + i + '">Add</button></div>').join(''); }
+  } catch (e) { if (e && e.code === 'not_granted') $('oracle').hidden = true; else $('oStatus').textContent = e && e.code === 'rate_limited' ? 'The oracle needs a rest. Try again in a minute.' : 'The oracle could not answer. Try again.'; }
+  $('oAsk').disabled = false;
+});
+
+// ---------- QUESTS ----------
+let claimables = {};
+function renderQuests() {
+  const c = calc(S.profile), today = c.today; claimables = {};
+  $('qCoins').textContent = fmt(ME.coins);
+  const q = (key, name, sub, coins, opts) => {
+    opts = opts || {}; const done = !!S.claims[key];
+    if (!done && opts.ready) claimables[key] = { coins, name, onClaim: opts.onClaim };
+    return '<div class="q' + (done ? ' done' : '') + '"><span class="qn">' + esc(name) + ' <span class="rw"><span class="coin"></span>' + fmt(coins) + '</span></span>' +
+      (done ? '<span class="chip good">CLAIMED</span>' : opts.ready ? '<button class="btn sm gold" type="button" data-claim="' + esc(key) + '">' + (opts.cta || 'Claim') + '</button>' : '<span class="chip">' + (opts.lock || 'LOCKED') + '</span>') +
+      '<span class="qs">' + sub + '</span></div>';
+  };
+  let h = '<h3>DAILY: HIT YOUR CALORIE GOAL</h3>';
+  const td = dayOf(today), tgt = c.budget + td.burned;
+  h += '<div class="q"><span class="qn">Today</span><span class="chip mana">IN PROGRESS</span><span class="qs">' + (c.dir < 0 ? 'Eat between ' + fmt(Math.min(c.floor, tgt)) + ' and ' + fmt(tgt) + ' cal. ' : 'Eat at least ' + fmt(tgt) + ' cal. ') + 'Eaten so far: ' + fmt(eatenOf(td)) + '. Claim tomorrow.</span></div>';
+  for (let i = 1; i <= 7; i++) {
+    const k = addDays(today, -i); if (S.profile.startDate && k < S.profile.startDate) break;
+    const hit = c.hit(k), d = dayOf(k);
+    h += q('day:' + k, pretty(k), hit === null ? 'Nothing logged.' : 'Ate ' + fmt(eatenOf(d)) + ' of ' + fmt(c.budgetOn(k) + d.burned) + (hit ? '. Goal hit.' : '. Missed.'), 50, { ready: hit === true, lock: hit === null ? 'NO LOG' : 'MISSED' });
+  }
+  h += '<h3>STREAK BONUSES</h3>';
+  const sd = c.streak ? addDays(today, -c.streak) : today; // streak started the day after sd
+  STREAKS.forEach(([n, coins]) => { h += q('streak' + n + ':' + addDays(sd, 1), n + ' days in a row', 'Current streak: ' + c.streak + (c.best > c.streak ? ' · best ' + c.best : ''), coins, { ready: c.streak >= n, lock: c.streak + '/' + n }); });
+  const mon = (() => { const d = parseKey(addDays(today, -1)); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return ymd(d); })();
+  let wk = 0; for (let i = 0; i < 7; i++) { const k = addDays(mon, i); if (k < today && c.hit(k)) wk++; }
+  h += q('week5:' + mon, 'Weekly: goal hit 5 of 7 days', 'Week of ' + pretty(mon, { month: 'short', day: 'numeric' }) + ': ' + wk + '/5', 250, { ready: wk >= 5, lock: wk + '/5' });
+
+  h += '<h3>FITNESS CHALLENGES (DAILY)</h3><label class="row" style="align-items:center;gap:8px"><input id="qAddBurn" type="checkbox" style="width:auto" checked> <span class="hint">Add the estimated burn to today\'s numbers</span></label>';
+  CHALLENGES.forEach(ch => { h += q('fit:' + ch.id + ':' + today, ch.name, 'About ' + fmt(ch.kcal) + ' cal burned. Once per day.', ch.coins, { ready: true, cta: 'I did it', onClaim: () => { if ($('qAddBurn') && $('qAddBurn').checked) { const d = ensureDay(today); d.burned = (d.burned || 0) + ch.kcal; store.saveDay(today); } } }); });
+
+  h += '<h3>WEIGHT MILESTONES</h3>';
+  const sk = S.profile.startDate || '', lbs = Math.floor(c.movedScale + 1e-9);
+  let pendingLbs = []; for (let i = 1; i <= Math.min(lbs, 200); i++) if (!S.claims['lb:' + sk + ':' + i]) pendingLbs.push(i);
+  h += '<div class="q' + (!pendingLbs.length && lbs > 0 ? ' done' : '') + '"><span class="qn">Every pound ' + (c.dir < 0 ? 'lost' : 'gained') + ' <span class="rw"><span class="coin"></span>100 each</span></span>' + (pendingLbs.length ? '<button class="btn sm gold" type="button" data-claimlbs="1">Claim ' + pendingLbs.length + '</button>' : '<span class="chip">' + (lbs > 0 ? 'UP TO DATE' : 'WEIGH IN') + '</span>') + '<span class="qs">From weigh-ins: ' + (c.movedScale >= 0 ? '' : '−') + Math.abs(r1(c.movedScale)) + ' lb toward your goal.</span></div>';
+  view.pendingLbs = pendingLbs.map(i => 'lb:' + sk + ':' + i);
+  h += q('half:' + sk, 'Halfway there', 'Reach 50% of your goal on the scale.', 500, { ready: c.pctScale >= 50, lock: Math.max(0, Math.floor(c.pctScale)) + '%' });
+  h += q('goal:' + sk, 'Goal weight reached', 'Hit your goal on the scale.', 2000, { ready: c.pctScale >= 100, lock: Math.max(0, Math.floor(c.pctScale)) + '%' });
+  h += '<div class="hint">Merit system: challenges and calorie numbers run on your word. Cheating only cheats your own countdown.</div>';
+  $('questList').innerHTML = h;
+}
+function claim(key) {
+  const cl = claimables[key]; if (!cl || S.claims[key]) return;
+  if (cl.onClaim) cl.onClaim();
+  S.claims[key] = todayKey(); ME.coins += cl.coins; ME.earned = (ME.earned || 0) + cl.coins;
+  store.savePrivate(); store.saveMe(); beep(SFX.coin); toast('+' + fmt(cl.coins) + ' COINS', cl.name);
+  afterChange(true); renderHUD();
+}
+function claimLbs() {
+  const keys = view.pendingLbs || []; if (!keys.length) return;
+  keys.forEach(k => { S.claims[k] = todayKey(); }); const coins = keys.length * 100; ME.coins += coins; ME.earned = (ME.earned || 0) + coins;
+  store.savePrivate(); store.saveMe(); beep(SFX.coin); toast('+' + fmt(coins) + ' COINS', keys.length + ' pound milestone' + (keys.length > 1 ? 's' : '')); renderActive(); renderHUD();
+}
+
+// ---------- SHOP ----------
+function rarity(p) { return p >= 2500 ? 'legend' : p >= 500 ? 'rare' : ''; }
+function renderShop() {
+  $('sCoins').textContent = fmt(ME.coins);
+  $('shopTabs').innerHTML = SLOTS.map(([s, n]) => '<button class="tab" type="button" data-shopslot="' + s + '" aria-pressed="' + (view.shopSlot === s) + '">' + n.toUpperCase() + '</button>').join('');
+  $('shopGrid').innerHTML = CATALOG.filter(i => i.slot === view.shopSlot).map(i => {
+    const own = ME.owned.includes(i.id), eq = ME.look[i.slot] === i.id, can = ME.coins >= i.price;
+    return '<div class="item ' + rarity(i.price) + (eq ? ' eq' : '') + '"><button type="button" class="sw" data-try="' + i.id + '" style="background:' + i.color + '" aria-label="Try on ' + esc(i.name) + '">' + (view.tryOn === i.id ? 'TRYING' : 'TRY') + '</button><span class="in">' + esc(i.name) + '</span>' +
+      '<span class="pr">' + (own ? (eq ? 'EQUIPPED' : 'OWNED') : '<span class="coin"></span>' + (i.price ? fmt(i.price) : 'FREE')) + '</span><span class="acts">' +
+      (own ? (eq ? (i.slot === 'shirt' || i.slot === 'pants' || i.slot === 'shoes' ? '' : '<button class="btn sm" type="button" data-unequip="' + i.slot + '">Take off</button>') : '<button class="btn sm go" type="button" data-equip="' + i.id + '">Wear</button>') : '<button class="btn sm gold" type="button" data-buy="' + i.id + '"' + (can ? '' : ' disabled') + '>' + (can ? 'Buy' : 'Need ' + fmt(i.price - ME.coins)) + '</button>') + '</span></div>';
+  }).join('');
+  $('tryingLbl').textContent = view.tryOn ? 'TRYING ON: ' + ITEM[view.tryOn].name.toUpperCase() : '';
+  setPreviewLook(view.tryOn ? Object.assign({}, ME.look, { [ITEM[view.tryOn].slot]: view.tryOn }) : ME.look, ME.build, 1);
+}
+function buy(id) {
+  const it = ITEM[id]; if (!it || ME.owned.includes(id) || ME.coins < it.price) return;
+  ME.coins -= it.price; ME.owned.push(id); ME.look[it.slot] = id; view.tryOn = null;
+  store.saveMe(); beep(SFX.buy); toast('UNLOCKED', it.name); refreshPlayer(); sendPresence(true); renderShop(); renderHUD();
+  if (player) { player.emote = 'cheer'; player.emoteUntil = T * 1000 + 2000; }
+}
+function equip(id) { const it = ITEM[id]; if (!it || !ME.owned.includes(id)) return; ME.look[it.slot] = id; store.saveMe(); refreshPlayer(); sendPresence(true); renderActive(); }
+function unequip(slot) { if (['shirt', 'pants', 'shoes'].includes(slot)) return; ME.look[slot] = null; store.saveMe(); refreshPlayer(); sendPresence(true); renderActive(); }
+
+// ---------- CLOSET ----------
+function swatchHTML(colors, sel, attr) { return colors.map((c, i) => '<button type="button" class="sw-btn" style="background:' + c + '" ' + attr + '="' + i + '" aria-pressed="' + (i === sel) + '" aria-label="Color ' + (i + 1) + '"></button>').join(''); }
+function renderCloset() {
+  if (document.activeElement !== $('clTag')) $('clTag').value = ME.tag;
+  $('closetSlots').innerHTML = SLOTS.map(([s, n]) => {
+    const owned = CATALOG.filter(i => i.slot === s && ME.owned.includes(i.id));
+    const opts = (['shirt', 'pants', 'shoes'].includes(s) ? '' : '<button type="button" class="chipbtn" data-cl-slot="' + s + '" data-cl-item="" aria-pressed="' + (!ME.look[s]) + '">None</button>') + owned.map(i => '<button type="button" class="chipbtn" data-cl-slot="' + s + '" data-cl-item="' + i.id + '" aria-pressed="' + (ME.look[s] === i.id) + '">' + esc(i.name) + '</button>').join('');
+    return '<div class="sec" style="gap:4px"><span class="lbl">' + n + '</span><div class="chips">' + (opts || '<span class="hint">Nothing yet. Visit the catalog.</span>') + '</div></div>';
+  }).join('');
+  $('clSkin').innerHTML = swatchHTML(SKINS, ME.look.skin, 'data-cl-skin');
+  $('clHairColor').innerHTML = swatchHTML(HAIR_COLORS, ME.look.hairColor, 'data-cl-hc');
+  $('clHair').innerHTML = HAIRS.map(h => '<button type="button" class="chipbtn" data-cl-hair="' + h + '" aria-pressed="' + (ME.look.hair === h) + '">' + h + '</button>').join('');
+  $('clBuild').innerHTML = BUILDS.map(b => '<button type="button" class="chipbtn" data-cl-build="' + b.id + '" aria-pressed="' + (ME.build === b.id) + '">' + b.name + '</button>').join('');
+  $('clBoard').checked = ME.board !== false;
+  setPreviewLook(ME.look, ME.build, 1);
+}
+function closetChanged() { store.saveMe(); refreshPlayer(); sendPresence(true); renderCloset(); renderHUD(); }
+$('clTag').addEventListener('change', () => { const v = $('clTag').value.trim(); if (/^[A-Za-z0-9_]{3,16}$/.test(v)) { ME.tag = v; closetChanged(); } else { $('clTag').value = ME.tag; toast('GAMERTAG', '3–16 letters, numbers or _'); } });
+$('clBoard').addEventListener('change', () => { ME.board = $('clBoard').checked; store.saveMe(); });
+$('clStats').addEventListener('click', () => { if (view.panel) closePanel(); openCreate(true); });
+
+// ---------- RANKS ----------
+function boardList(tab, sort) {
+  let list = store.mode === 'db' ? PLAYERS.slice() : (ME ? [Object.assign({ id: 'me' }, ME)] : []);
+  if (store.mode === 'db' && ME && store.uid && !list.some(p => p.id === store.uid)) list.push(Object.assign({ id: store.uid }, ME));
+  if (store.mode === 'db' && ME) list = list.map(p => p.id === store.uid ? Object.assign({ id: p.id }, ME) : p);
+  list = list.filter(p => p && p.board !== false && typeof p.tag === 'string');
+  if (tab === 'lose' || tab === 'gain') list = list.filter(p => p.goal === tab);
+  if (tab === 'all') list = list.filter(p => (+p.pct || 0) > 0);
+  if (tab === 'streak') return list.sort((a, b) => (+b.streak || 0) - (+a.streak || 0) || (+b.best || 0) - (+a.best || 0));
+  if (tab === 'earned') return list.sort((a, b) => (+b.earned || 0) - (+a.earned || 0));
+  return list.sort((a, b) => sort === 'lbs' ? (+b.moved || 0) - (+a.moved || 0) : (+b.pct || 0) - (+a.pct || 0) || (+b.moved || 0) - (+a.moved || 0));
+}
+function renderRanks() {
+  document.querySelectorAll('[data-rank]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.rank === view.rankTab)));
+  document.querySelectorAll('[data-sort]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === view.rankSort)));
+  $('rankSort').hidden = !(view.rankTab === 'lose' || view.rankTab === 'gain');
+  const list = boardList(view.rankTab, view.rankSort).slice(0, 50);
+  const myId = store.mode === 'db' ? store.uid : 'me';
+  $('rankList').innerHTML = list.length ? list.map((p, i) => {
+    const look = sanitizeLook(p.look), col = (ITEM[look.shirt] || {}).color || '#888';
+    let v;
+    if (view.rankTab === 'streak') v = 'x' + (+p.streak || 0) + '<small>best x' + (+p.best || 0) + '</small>';
+    else if (view.rankTab === 'earned') v = fmt(+p.earned || 0) + '<small>coins earned</small>';
+    else { const m = +p.moved || 0, sign = p.goal === 'lose' ? (m >= 0 ? '−' : '+') : (m >= 0 ? '+' : '−'); v = (view.rankSort === 'lbs' ? sign + Math.abs(m) + ' lb' : (+p.pct || 0) + '%') + '<small>' + (view.rankSort === 'lbs' ? (+p.pct || 0) + '% of goal' : sign + Math.abs(m) + ' lb') + '</small>'; }
+    return '<div class="rank' + (p.id === myId ? ' you' : '') + '"><span class="r">#' + (i + 1) + '</span><span class="dot" style="background:' + col + '"></span><span class="nm">' + esc(String(p.tag).slice(0, 16)) + (p.id === myId ? ' <span class="chip mana">YOU</span>' : '') + ' <span class="hint">LV' + (+p.lv || 1) + '</span></span><span class="v">' + v + '</span></div>';
+  }).join('') : '<div class="empty">Nobody on this board yet.' + (store.mode !== 'db' ? ' The shared leaderboard needs a signed-in claude.ai account.' : '') + '</div>';
+}
+
+// ---------- delegated clicks ----------
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) { if (!e.target.closest('.namef')) $('sugg').hidden = true; return; }
+  const ds = t.dataset;
+  if (ds.tab) { goTab(ds.tab); return; }
+  if (ds.create) { openCreate(!!(S.profile && ME)); return; }
+  if (ds.open) { view.panel === ds.open ? closePanel() : openPanel(ds.open); return; }
+  if (ds.emote) { doEmote(ds.emote); return; }
+  if (ds.pick != null) { pick(+ds.pick); return; }
+  if (ds.meal) { view.meal = ds.meal; renderLog(); return; }
+  if (ds.day) { view.date = ds.day; renderActive(); if (view.tab === 'tracker' && !view.panel) $('p-log').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (ds.quick != null) { addFood(ds.quick, +ds.kcal, 1); return; }
+  if (ds.del) { const d = dayOf(view.date); d.foods = d.foods.filter(f => f.id !== ds.del); store.saveDay(view.date); beep(SFX.del); afterChange(false); return; }
+  if (ds.wdel) { S.weighIns = S.weighIns.filter(w => w.date !== ds.wdel); store.savePrivate(); beep(SFX.del); afterChange(false); return; }
+  if (ds.oadd != null) { const it = oracleItems[+ds.oadd]; if (it && addFood(it.name, it.kcal, 1)) { t.disabled = true; t.textContent = 'Added'; } return; }
+  if (ds.claim) { claim(ds.claim); return; }
+  if (ds.claimlbs) { claimLbs(); return; }
+  if (ds.shopslot) { view.shopSlot = ds.shopslot; renderShop(); return; }
+  if (ds.try) { view.tryOn = view.tryOn === ds.try ? null : ds.try; refreshPlayer(); renderShop(); return; }
+  if (ds.buy) { buy(ds.buy); return; }
+  if (ds.equip) { equip(ds.equip); return; }
+  if (ds.unequip) { unequip(ds.unequip); return; }
+  if (ds.clSlot != null) { const id = ds.clItem || null; if (!id || ME.owned.includes(id)) { ME.look[ds.clSlot] = id; closetChanged(); } return; }
+  if (ds.clSkin != null) { ME.look.skin = +ds.clSkin; closetChanged(); return; }
+  if (ds.clHc != null) { ME.look.hairColor = +ds.clHc; closetChanged(); return; }
+  if (ds.clHair) { ME.look.hair = ds.clHair; closetChanged(); return; }
+  if (ds.clBuild) { ME.build = ds.clBuild; closetChanged(); return; }
+  if (ds.rank) { view.rankTab = ds.rank; renderRanks(); return; }
+  if (ds.sort) { view.rankSort = ds.sort; renderRanks(); return; }
+  if (ds.cBuild) { view.draft.build = ds.cBuild; renderCreate(); return; }
+  if (ds.cSkin != null) { view.draft.skin = +ds.cSkin; renderCreate(); return; }
+  if (ds.cHc != null) { view.draft.hairColor = +ds.cHc; renderCreate(); return; }
+  if (ds.cHair) { view.draft.hair = ds.cHair; renderCreate(); return; }
+});
+$('meCard').addEventListener('click', () => openPanel('closet'));
+$('homeMain').addEventListener('click', () => { if (S.profile && ME) goTab('tracker'); else openCreate(false); });
+$('burnCard').addEventListener('click', () => openPanel('log'));
+$('soundBtn').addEventListener('click', () => { view.sound = !view.sound; try { localStorage.setItem('fq-sound', view.sound ? 'on' : 'off'); } catch (e) {} if (view.sound) beep(SFX.add); renderHUD(); });
+
+// ================= avatar preview (create / shop / closet) =================
+const prevR = new THREE.WebGLRenderer({ antialias: false, alpha: true }); prevR.setPixelRatio(0.6);
+const prevScene = new THREE.Scene(); prevScene.add(new THREE.HemisphereLight('#ffffff', '#5a4a8a', 1.0)); { const l = new THREE.DirectionalLight('#ffffff', 0.5); l.position.set(3, 5, 6); prevScene.add(l); }
+const prevCam = new THREE.PerspectiveCamera(32, 1, 0.1, 50); prevCam.position.set(0, 1.45, 6.2); prevCam.lookAt(0, 1.15, 0);
+const prevHolder = new THREE.Group(); prevScene.add(prevHolder);
+let prevKey = '', prevAv = null, prevMount = null;
+function mountPreview(el) { prevMount = el; el.appendChild(prevR.domElement); sizePreview(); }
+function unmountPreview() { if (prevR.domElement.parentNode) prevR.domElement.parentNode.removeChild(prevR.domElement); prevMount = null; }
+function sizePreview() { if (!prevMount) return; const w = prevMount.clientWidth || 300, h = prevMount.clientHeight || 220; prevR.setSize(w, h, false); prevCam.aspect = w / h; prevCam.updateProjectionMatrix(); }
+function setPreviewLook(look, build, sc) {
+  const key = JSON.stringify([look, build, sc]); if (key === prevKey) return; prevKey = key;
+  prevHolder.clear(); prevAv = buildAvatar(look, build, sc); prevHolder.add(prevAv.root);
+}
+function renderPreview(t) {
+  if (!prevMount || !prevMount.offsetParent) return;
+  if (prevR.domElement.width < 4) sizePreview();
+  prevHolder.rotation.y = Math.sin(t * 0.6) * 0.7; animateAvatar(prevAv, t, false, null);
+  prevR.render(prevScene, prevCam);
+}
+window.addEventListener('resize', sizePreview);
+
+// ================= create player / edit stats =================
+function readCreate() {
+  const n = id => { const v = parseFloat($(id).value); return isFinite(v) ? v : null; };
+  return { tag: $('cTag').value.trim(), sex: $('cSex').value, age: n('cAge'), heightFt: n('cFt'), heightIn: n('cIn') ?? 0, weight: n('cWeight'), target: n('cTarget'), activity: +$('cAct').value, tdeeOverride: n('cTdee'), deadline: $('cDeadline').value || '', pace: +$('cPace').value };
+}
+function openCreate(edit) {
+  view.editing = !!edit;
+  const p = S.profile, c = p ? calc(p) : null;
+  view.draft = { build: (ME && ME.build) || 'average', skin: ME ? ME.look.skin : 1, hair: ME ? ME.look.hair : 'short', hairColor: ME ? ME.look.hairColor : 1 };
+  $('cTag').value = ME ? ME.tag : '';
+  if (p) { $('cSex').value = p.sex || 'male'; $('cAge').value = p.age || ''; $('cFt').value = p.heightFt || ''; $('cIn').value = p.heightIn ?? ''; $('cWeight').value = c.cur; $('cTarget').value = p.targetWeight; $('cAct').value = String(p.activity || 1.375); $('cTdee').value = p.tdeeOverride || ''; $('cDeadline').value = p.deadline || ''; $('cPace').value = String(p.pace || 500); }
+  $('cDeadline').min = todayKey();
+  $('cTitle').textContent = edit ? 'EDIT STATS' : 'CREATE ACCOUNT';
+  $('cGo').textContent = edit ? 'Save' : 'Start my quest'; $('cCancel').hidden = false; $('cResetRow').hidden = !edit; $('cResetConfirm').hidden = true;
+  $('create').hidden = false; $('create').scrollTop = 0;
+  mountPreview($('createPrev')); renderCreate();
+}
+function closeCreate() { $('create').hidden = true; unmountPreview(); view.editing = false; }
+function renderCreate() {
+  const d = view.draft, f = readCreate();
+  $('cBuild').innerHTML = BUILDS.map(b => '<button type="button" class="chipbtn" data-c-build="' + b.id + '" aria-pressed="' + (d.build === b.id) + '">' + b.name + '</button>').join('');
+  $('cSkin').innerHTML = swatchHTML(SKINS, d.skin, 'data-c-skin');
+  $('cHairColor').innerHTML = swatchHTML(HAIR_COLORS, d.hairColor, 'data-c-hc');
+  $('cHair').innerHTML = HAIRS.map(h => '<button type="button" class="chipbtn" data-c-hair="' + h + '" aria-pressed="' + (d.hair === h) + '">' + h + '</button>').join('');
+  const look = Object.assign(ME ? JSON.parse(JSON.stringify(ME.look)) : defaultLook(), { skin: d.skin, hair: d.hair, hairColor: d.hairColor });
+  const hIn = (f.heightFt || 5) * 12 + (f.heightIn || 0);
+  setPreviewLook(look, d.build, clamp(hIn / 69, 0.9, 1.1));
+  // quest summary
+  const err = validateCreate(f); $('cErr').textContent = '';
+  const warn = $('cWarn'); warn.hidden = true;
+  if (f.weight > 0 && f.target > 0 && f.weight !== f.target) {
+    const lose = f.target < f.weight, lbs = Math.abs(f.weight - f.target);
+    const p = { startWeight: f.weight, targetWeight: f.target, sex: f.sex, age: f.age, heightFt: f.heightFt, heightIn: f.heightIn, activity: f.activity, tdeeOverride: f.tdeeOverride, deadline: f.deadline, pace: f.pace };
+    const tdee = tdeeFor(p, f.weight), est = tdeeFor(Object.assign({}, p, { tdeeOverride: null }), f.weight);
+    let daily = f.pace, days = null;
+    if (f.deadline) { days = diffDays(todayKey(), f.deadline); if (days > 0) daily = lbs * KCAL / days; }
+    const floor = f.sex === 'female' ? 1200 : 1500, budget = lose ? Math.max(floor, Math.round(tdee - daily)) : Math.round(tdee + daily);
+    $('cSummary').innerHTML = 'Quest: <b>' + (lose ? 'lose' : 'gain') + ' ' + r1(lbs) + ' lb</b> = <b>' + fmt(lbs * KCAL) + '</b> calories to ' + (lose ? 'burn' : 'build') + '.<br>' +
+      (days > 0 ? days + ' days → about <b>' + fmt(daily) + '</b> cal/day ' + (lose ? 'deficit' : 'surplus') + ' (' + (daily * 7 / KCAL).toFixed(2) + ' lb/week).<br>' : '') +
+      'Maintenance <b>' + fmt(tdee) + '</b>' + (f.tdeeOverride ? ' (yours)' : ' (estimated from your stats; type your own if you know it)') + ' · daily target <b>' + fmt(budget) + '</b> cal.';
+    const msgs = [];
+    if (daily > 1000) msgs.push('That pace needs ' + fmt(daily) + ' cal/day, more than the ~1,000/day (2 lb/week) most guidelines treat as the safe max. ' + (lose ? 'Your daily target is held at ' + fmt(floor) + ' minimum. ' : '') + 'Consider a later deadline.');
+    const bmi = hIn > 0 ? 703 * f.target / (hIn * hIn) : 0;
+    if (lose && bmi && bmi < 18.5) msgs.push('A goal of ' + f.target + ' lb is under a healthy BMI for ' + Math.floor(hIn / 12) + '\'' + (hIn % 12) + '". The lowest healthy weight for your height is about ' + Math.ceil(18.5 * hIn * hIn / 703) + ' lb.');
+    if (msgs.length) { warn.hidden = false; warn.textContent = msgs.join(' '); }
+  } else $('cSummary').textContent = 'Enter your current and goal weight to see your quest.';
+  return err;
+}
+function validateCreate(f) {
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(f.tag)) return 'Pick a gamertag: 3–16 letters, numbers or _.';
+  if (!(f.age >= 13 && f.age <= 100)) return 'Enter your age (13+).';
+  if (!(f.heightFt >= 3 && f.heightFt <= 8)) return 'Enter your height.';
+  if (!(f.weight >= 70 && f.weight <= 700) || !(f.target >= 70 && f.target <= 700)) return 'Enter your current and goal weight in pounds.';
+  if (Math.abs(f.weight - f.target) < 1) return 'Your goal needs to be at least 1 lb away from your current weight.';
+  const hIn = f.heightFt * 12 + f.heightIn; if (f.target < f.weight && 703 * f.target / (hIn * hIn) < 18.5) return 'Pick a goal at or above ' + Math.ceil(18.5 * hIn * hIn / 703) + ' lb, the healthy minimum for your height.';
+  return '';
+}
+$('createForm').addEventListener('input', () => renderCreate());
+$('createForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = readCreate(), err = validateCreate(f); if (err) { $('cErr').textContent = err; return; }
+  const today = todayKey(), d = view.draft, hIn = f.heightFt * 12 + f.heightIn;
+  const fields = { sex: f.sex, age: f.age, heightFt: f.heightFt, heightIn: f.heightIn, activity: f.activity, tdeeOverride: f.tdeeOverride, deadline: f.deadline, pace: f.pace, build: d.build };
+  if (!S.profile) { S.profile = Object.assign({ startWeight: f.weight, targetWeight: f.target, startDate: today }, fields); S.weighIns = [{ date: today, w: f.weight }]; }
+  else {
+    const c = calc(S.profile);
+    const flipped = (f.target < f.weight) !== (S.profile.targetWeight < S.profile.startWeight);
+    Object.assign(S.profile, fields, { targetWeight: f.target });
+    if (Math.abs(c.cur - f.weight) >= 0.05) S.weighIns = S.weighIns.filter(x => x.date !== today).concat({ date: today, w: f.weight }).sort((a, b) => a.date < b.date ? -1 : 1);
+    if (flipped) { S.profile.startWeight = f.weight; S.profile.startDate = today; }
+  }
+  const fresh = !ME;
+  if (!ME) ME = { coins: 100, earned: 0, owned: STARTER.slice(), board: true, look: defaultLook() };
+  Object.assign(ME.look, { skin: d.skin, hair: d.hair, hairColor: d.hairColor });
+  ME.tag = f.tag; ME.build = d.build; ME.scale = r1(clamp(hIn / 69, 0.9, 1.1));
+  store.savePrivate(); closeCreate();
+  lastHp = null; lastLv = null; store.saveMe();
+  if (view.tab === 'island') spawn(); else goTab(fresh || view.tab === 'home' ? 'tracker' : view.tab);
+  afterChange(false);
+  if (fresh) { beep(SFX.lvl); toast('WELCOME, ' + ME.tag.toUpperCase(), '+100 STARTER COINS'); addChat('', 'Walk with WASD or tap the ground. Drag to turn the camera. Visit the GYM for quests and the CATALOG for gear.', false, true); }
+});
+$('cCancel').addEventListener('click', () => { closeCreate(); if (!ME && view.tab !== 'home') goTab('home'); });
+$('cReset').addEventListener('click', () => { $('cResetConfirm').hidden = false; });
+$('cResetNo').addEventListener('click', () => { $('cResetConfirm').hidden = true; });
+$('cResetYes').addEventListener('click', async () => {
+  await store.wipe(); S = { profile: null, weighIns: [], ach: {}, claims: {}, days: {} }; ME = null; $('navCoins').hidden = true;
+  if (player) { removeEntity(player); player = null; } room && room.presence({ x: null, z: null }).catch(() => {});
+  closeCreate(); goTab('home');
+});
+
+// ================= tabs =================
+const TABS = ['home', 'tracker', 'quests', 'shop', 'island', 'closet', 'ranks'];
+const SECTIONS = { quests: () => renderQuests(), shop: () => renderShop(), closet: () => renderCloset(), ranks: () => renderRanks() };
+function goTab(tab) {
+  if (!TABS.includes(tab)) tab = 'home';
+  if (view.panel) closePanel();
+  unmountPreview();
+  view.tab = tab;
+  document.querySelectorAll('.navtab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  TABS.forEach(t => { const pg = $('page-' + t); if (pg) pg.hidden = t !== tab; });
+  const island = tab === 'island', has = !!(S.profile && ME);
+  $('tags').hidden = !island; $('chatlog').hidden = !island;
+  if (island && has) spawn();
+  else {
+    view.mode = 'browse'; $('hud').hidden = true; $('hudBottom').hidden = true; $('prompt').hidden = true; view.zone = null;
+    if (player) { player.root.visible = false; player.el.hidden = true; }
+    if (room && player) { room.presence({ x: null, z: null }).catch(() => {}); lastPres = ''; }
+    if (island && store.ready) openCreate(false);
+  }
+  if (tab === 'tracker') { $('trackLogHost').appendChild($('p-log')); $('p-log').hidden = !has; renderTracker(); if (has) renderLog(); }
+  if (SECTIONS[tab]) {
+    const host = $('host-' + tab), sec = $('p-' + tab);
+    if (!has && tab !== 'ranks') { host.appendChild($('needPlayer')); $('needPlayer').hidden = false; sec.hidden = true; }
+    else {
+      host.appendChild(sec); sec.hidden = false; $('needPlayer').hidden = true;
+      if (tab === 'shop') mountPreview($('shopPrev')); if (tab === 'closet') mountPreview($('closetPrev'));
+      SECTIONS[tab]();
+    }
+  }
+  if (tab === 'home') renderHome();
+  $('page-' + tab) && ($('page-' + tab).scrollTop = 0);
+}
+function renderActive() {
+  if (view.panel) renderPanel();
+  else if (view.tab === 'tracker') { renderTracker(); if (S.profile && ME) renderLog(); }
+  else if (view.tab === 'home') renderHome();
+  else if (SECTIONS[view.tab] && (ME || view.tab === 'ranks')) SECTIONS[view.tab]();
+}
+
+// ================= home =================
+function renderHome() {
+  if (!store.ready) return;
+  const has = !!(S.profile && ME), btn = $('homeMain');
+  btn.disabled = false; btn.textContent = has ? 'Open my tracker' : 'Create account';
+  $('homeStatus').textContent = store.status + (S.profile && !ME ? ' Your Deficit Quest progress carries over when you create your account.' : '');
+  const q = $('homeQuest'); q.hidden = !has;
+  if (has) {
+    const c = calc(S.profile), td = dayOf(c.today), left = c.budget + td.burned - eatenOf(td);
+    q.classList.toggle('gain', c.dir > 0);
+    $('hqLbl').textContent = c.hp <= 0 ? 'QUEST COMPLETE' : c.dir < 0 ? 'CALORIES LEFT TO BURN' : 'CALORIES LEFT TO BUILD';
+    $('hqNum').textContent = fmt(c.hp);
+    $('hqFill').style.width = (Math.min(1, c.hp / Math.max(c.totalHP, c.weightHP, 1)) * 100) + '%';
+    $('hqSub').innerHTML = esc(ME.tag) + ' · LV ' + c.level + ' · <span class="coin"></span>' + fmt(ME.coins) + ' · today ' + (c.dir < 0 ? (left >= 0 ? fmt(left) + ' cal left' : fmt(-left) + ' over') : (left > 0 ? fmt(left) + ' more to eat' : 'target hit')) + '. Tap to open your tracker.';
+  }
+  const top = boardList('all', 'pct').slice(0, 5), myId = store.mode === 'db' ? store.uid : 'me';
+  $('homeTop').innerHTML = top.length ? top.map((p, i) => '<div class="rank' + (p.id === myId ? ' you' : '') + '"><span class="r">#' + (i + 1) + '</span><span class="dot" style="background:' + ((ITEM[sanitizeLook(p.look).shirt] || {}).color || '#888') + '"></span><span class="nm">' + esc(String(p.tag).slice(0, 16)) + ' <span class="hint">' + (p.goal === 'gain' ? 'bulking' : 'cutting') + '</span></span><span class="v">' + (+p.pct || 0) + '%<small>of goal</small></span></div>').join('') : '<div class="empty">Nobody has moved the scale yet. Be first.</div>';
+  const names = [...REMOTES.values()].map(e => e.tagText).filter(Boolean);
+  $('homeOnline').textContent = !room ? 'Live players show up here when you are signed in to claude.ai with access to this page.' : names.length ? names.length + ' on the island: ' + names.slice(0, 12).join(', ') + (names.length > 12 ? '…' : '') : 'Nobody is on the island right now. Hop in and they will see you when they arrive.';
+}
+
+// ================= tracker =================
+const SPRITE = [
+  '.....oooooo.....', '...ooBBBBBBoo...', '..oBBhhBBBBBBo..', '.oBBhBBBBBBBBBo.', '.oBwwwBBBBwwwBo.', 'oBBwkwBBBBwkwBBo', 'oBBwwwBBBBwwwBBo', 'oBBBBBBBBBBBBBBo',
+  'oBBmmmmmmmmmmBBo', 'oBBmtmmtmmtmmBBo', 'oBBBmmmmmmmmBBBo', 'oBBBBBBBBBBBBBBo', '.oBBBBBBBBBBBBo.', '.oBBBBBBBBBBBBo.', '..ooBBo..oBBoo..', '...ooo....ooo...'
+];
+function drawBoss(dead, gain) {
+  const g = $('boss').getContext('2d');
+  const pal = { o: '#07060d', B: gain ? '#8a8fa3' : '#a374ff', h: gain ? '#c9ccd6' : '#d4bcff', w: '#f1ead6', k: dead ? '#ff4d5e' : '#07060d', m: '#3a1030', t: '#f1ead6' };
+  g.clearRect(0, 0, 16, 16);
+  SPRITE.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+}
+let trackHp = null;
+function renderTracker() {
+  const has = !!(S.profile && ME);
+  $('trackEmpty').hidden = has; $('trackMain').hidden = !has; if (!has) return;
+  const p = S.profile, c = calc(p), today = c.today, dead = c.totalHP > 0 && c.hp <= 0;
+  drawBoss(dead, c.dir > 0); $('boss').classList.toggle('dead', dead);
+  $('arena').classList.toggle('gain', c.dir > 0);
+  const max = Math.max(c.totalHP, c.weightHP, 1), hf = Math.min(1, c.hp / max), pf = Math.min(c.pending, c.hp) / max;
+  $('tHpFill').style.width = (hf * 100) + '%'; $('tHpPend').style.left = ((hf - pf) * 100) + '%'; $('tHpPend').style.width = (pf * 100) + '%';
+  $('bossScale').style.transform = 'scale(' + (0.5 + 0.5 * hf).toFixed(3) + ')';
+  $('bossTag').innerHTML = 'BOSS: ' + (c.dir < 0 ? 'LARD LORD' : 'THE PLATEAU') + ' &middot; <b>LV ' + c.level + '</b>';
+  $('tHpLabel').textContent = dead ? 'QUEST COMPLETE' : c.dir < 0 ? 'CALORIES LEFT TO BURN' : 'CALORIES LEFT TO BUILD';
+  $('tHpNum').textContent = fmt(c.hp);
+  $('tLbsLeft').textContent = (c.hp / KCAL).toFixed(1); $('tPct').textContent = Math.floor(c.pct) + '%'; $('tTotal').textContent = fmt(c.totalHP);
+  const note = [];
+  if (dead) note.push('<span style="color:var(--good)">Boss defeated. You hit ' + c.cur + ' lb.</span>');
+  else {
+    if (c.pending > 0) note.push('<span class="pending">−' + fmt(c.pending) + ' pending from today</span> (your maintenance + burn vs. what you ate so far; it counts once the day ends)');
+    if (c.bankedDays > 0) note.push('Includes ' + (c.banked >= 0 ? '−' : '+') + fmt(Math.abs(c.banked)) + ' from ' + c.bankedDays + ' logged day' + (c.bankedDays > 1 ? 's' : '') + ' since your last weigh-in. Weigh in to lock it to the scale.');
+    if (!c.pending && !c.bankedDays) note.push('Last weigh-in: ' + c.cur + ' lb on ' + pretty(c.lastW) + '.');
+  }
+  $('tNote').innerHTML = note.join('<br>');
+  const b = $('boss'); if (trackHp != null && c.hp < trackHp) { b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); } trackHp = c.hp;
+
+  const td = dayOf(today), tgt = c.budget + td.burned, left = tgt - eatenOf(td);
+  if (c.dir < 0) {
+    $('stToday').textContent = (left < 0 ? '−' : '') + fmt(Math.abs(left)); $('stToday').style.color = left < 0 ? 'var(--hp)' : 'var(--mana)';
+    $('stTodaySub').innerHTML = left < 0 ? 'Over your target by <b>' + fmt(-left) + '</b>' : 'Target <b>' + fmt(tgt) + '</b> · maintenance <b>' + fmt(c.tdeeOn(today)) + '</b> · burned <b>' + fmt(td.burned) + '</b>';
+  } else {
+    $('stToday').textContent = left > 0 ? fmt(left) : 'HIT'; $('stToday').style.color = left > 0 ? 'var(--mana)' : 'var(--good)';
+    $('stTodaySub').innerHTML = left > 0 ? 'More to eat to reach <b>' + fmt(tgt) + '</b>' : 'Target of <b>' + fmt(tgt) + '</b> reached';
+  }
+  const chip = $('stDeadChip');
+  if (c.daysLeft != null && !c.deadlinePassed) {
+    $('stDead').textContent = c.daysLeft + (c.daysLeft === 1 ? ' DAY' : ' DAYS');
+    $('stDeadSub').innerHTML = 'Average <b>' + fmt(c.needDaily) + '</b> cal/day ' + (c.dir < 0 ? 'deficit' : 'surplus') + '<br><b>' + (c.needDaily * 7 / KCAL).toFixed(2) + '</b> lb/week · ' + (c.hp / KCAL / c.daysLeft).toFixed(2) + ' lb/day';
+    let expectedHP = null;
+    if (p.startDate && p.deadline > p.startDate) { const span = diffDays(p.startDate, p.deadline), el = clamp(diffDays(p.startDate, today), 0, span); expectedHP = c.totalHP * (1 - el / span); }
+    if (expectedHP != null) { const gap = c.hp - expectedHP; chip.hidden = false;
+      if (gap <= -1750) { chip.className = 'chip good'; chip.textContent = 'AHEAD BY ' + fmt(-gap); }
+      else if (gap <= 1750) { chip.className = 'chip mana'; chip.textContent = 'ON TRACK'; }
+      else { chip.className = 'chip bad'; chip.textContent = 'BEHIND BY ' + fmt(gap); } } else chip.hidden = true;
+  } else if (c.deadlinePassed) { $('stDead').textContent = 'TIME UP'; $('stDeadSub').innerHTML = 'Your deadline passed. Set a new one in Avatar → Edit body stats.'; chip.hidden = true; }
+  else { $('stDead').textContent = 'NONE SET'; $('stDeadSub').innerHTML = 'At ' + fmt(c.planned) + ' cal/day you finish about <b>' + pretty(c.etaDate, { month: 'short', day: 'numeric', year: 'numeric' }) + '</b>'; chip.hidden = true; }
+  $('stStreak').textContent = 'x' + c.streak;
+  const todayHit = c.hit(today);
+  $('stStreakSub').innerHTML = (c.streak ? 'Days in a row on target. ' : 'Finish a day on target to start a combo. ') + (todayHit ? 'Hold today for <b>x' + (c.streak + 1) + '</b>.' : '') + (c.best > c.streak ? ' Best: <b>x' + c.best + '</b>' : '');
+  const frac = c.hp <= 0 ? 1 : c.lbsMoved % 1;
+  $('stLevel').textContent = 'LV ' + c.level; $('xpFill').style.width = (frac * 100) + '%';
+  $('stLevelSub').innerHTML = '<span class="coin"></span><b>' + fmt(ME.coins) + '</b> coins · ' + (c.hp <= 0 ? 'max level' : '<b>' + fmt((1 - frac) * KCAL) + '</b> cal to LV ' + (c.level + 1));
+  $('tWarn').hidden = !c.tooFast;
+  if (c.tooFast) $('tWarnText').textContent = 'Your deadline needs a ' + fmt(c.needDaily) + ' cal/day ' + (c.dir < 0 ? 'deficit' : 'surplus') + ' (' + (c.needDaily * 7 / KCAL).toFixed(1) + ' lb/week). Most guidelines cap it near 1,000 cal/day (2 lb/week)' + (c.dir < 0 ? ' and keep intake above ' + fmt(c.floor) + ' cal, so your daily target is held at ' + fmt(c.budget) : '') + '. Consider moving the deadline.';
+  renderChart(c); renderCal(c);
+  let ready = 0;
+  for (let i = 1; i <= 7; i++) { const k = addDays(today, -i); if (p.startDate && k < p.startDate) break; if (c.hit(k) === true && !S.claims['day:' + k]) ready++; }
+  const lbs = Math.floor(c.movedScale + 1e-9); for (let i = 1; i <= Math.min(lbs, 200); i++) if (!S.claims['lb:' + (p.startDate || '') + ':' + i]) ready++;
+  $('tTeaser').innerHTML = ready ? '<b style="color:var(--gold)">' + ready + '</b> reward' + (ready > 1 ? 's' : '') + ' ready to claim.' : 'Nothing to claim yet. Hit today\'s calorie target or knock out a fitness quest.';
+}
+function renderChart(c) {
+  const p = S.profile, W = 600, H = 230, L = 46, R = 14, T = 14, B = 30, x0 = p.startDate || c.today;
+  let x1 = p.deadline && p.deadline > c.today ? p.deadline : addDays(c.today, 30);
+  if (S.weighIns.length && S.weighIns[S.weighIns.length - 1].date > x1) x1 = S.weighIns[S.weighIns.length - 1].date;
+  const span = Math.max(1, diffDays(x0, x1)), ws = S.weighIns.map(w => w.w);
+  const lo = Math.floor(Math.min(p.targetWeight, p.startWeight, ...ws) - 2), hi = Math.ceil(Math.max(p.startWeight, p.targetWeight, ...ws) + 2);
+  const X = k => L + (W - L - R) * clamp(diffDays(x0, k) / span, 0, 1), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Weight over time">';
+  const step = (hi - lo) > 30 ? 10 : 5;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#2c2650" stroke-width="1"/><text x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + v + '</text>';
+  s += '<text x="' + L + '" y="' + (H - 8) + '">' + esc(pretty(x0, { month: 'short', day: 'numeric' })) + '</text><text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(pretty(x1, { month: 'short', day: 'numeric' })) + '</text>';
+  s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(p.targetWeight) + '" y2="' + Y(p.targetWeight) + '" stroke="#ffc94a" stroke-width="3" stroke-dasharray="8 6"/>';
+  if (p.deadline && p.deadline > x0) s += '<line x1="' + X(x0) + '" y1="' + Y(p.startWeight) + '" x2="' + X(p.deadline) + '" y2="' + Y(p.targetWeight) + '" stroke="#948db8" stroke-width="2" stroke-dasharray="4 6"/>';
+  const tx = X(c.today); s += '<line x1="' + tx + '" x2="' + tx + '" y1="' + T + '" y2="' + (H - B) + '" stroke="#4b3f86" stroke-width="2"/>';
+  if (S.weighIns.length > 1) s += '<polyline fill="none" stroke="#4fc8ff" stroke-width="3" points="' + S.weighIns.map(w => X(w.date) + ',' + Y(w.w)).join(' ') + '"/>';
+  S.weighIns.forEach((w, i) => { const last = i === S.weighIns.length - 1, r = last ? 6 : 4; s += '<rect x="' + (X(w.date) - r) + '" y="' + (Y(w.w) - r) + '" width="' + (2 * r) + '" height="' + (2 * r) + '" fill="' + (last ? '#ffc94a' : '#4fc8ff') + '" stroke="#07060d" stroke-width="2"/>'; });
+  $('chart').innerHTML = s + '</svg>';
+}
+function renderCal(c) {
+  const start = addDays(c.today, -27);
+  let h = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'].map(d => '<span class="dow">' + d + '</span>').join('');
+  for (let i = 0; i < parseKey(start).getDay(); i++) h += '<span></span>';
+  for (let i = 0; i < 28; i++) {
+    const k = addDays(start, i), d = S.days[k], hit = c.hit(k);
+    let cls = 'cell', label = pretty(k) + ': ';
+    if (d && d.foods.length) { if (k === c.today) { cls += ' live'; label += fmt(eatenOf(d)) + ' cal so far'; } else { cls += hit ? ' under' : ' over'; label += fmt(eatenOf(d)) + ' cal, ' + (hit ? 'goal hit' : 'missed'); } }
+    else label += 'nothing logged';
+    if (k === c.today) cls += ' today'; if (k === view.date) cls += ' viewing';
+    h += '<button type="button" class="' + cls + '" data-day="' + k + '" aria-label="' + esc(label) + '" title="' + esc(label) + '">' + parseKey(k).getDate() + '</button>';
+  }
+  $('cal').innerHTML = h;
+}
+
+// ================= boot =================
+function boot() {
+  buildWorld(); resize(); requestAnimationFrame(tick);
+  const h = (location.hash || '').slice(1); view.startTab = TABS.includes(h) ? h : 'home';
+  view.tab = 'home';
+  store.init().then(() => {
+    store.ready = true; store.subscribePlayers(); updatePodium();
+    goTab(view.startTab);
+    if (S.profile && ME) { lastHp = null; afterChange(false); }
+  });
+  initRoom();
+  if (window.claude && window.claude.use) window.claude.use('sample').then(s => { sample = s; $('oracle').hidden = !s; }).catch(() => {});
+  setInterval(() => { if (view.tab !== 'island' || view.panel) renderActive(); renderHUD(); }, 60000);
+}
+const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('18px "Press Start 2P"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+fontsReady.then(boot, boot);
+})();
+</script>
+
+</body>
+</html>
