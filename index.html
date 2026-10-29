@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <style>
 /* Layout: a full-screen 3D island (the game) with a retro HUD on top: calories-left counter top center, dock + chat at the bottom, panels slide over the world. Single deliberate dark arcade look. */
+/* the hidden attribute must win over component display rules (.panel is display:flex) */
+[hidden] { display: none !important; }
 :root {
   --void: #13101f;
   --panel: #1e1a34;
